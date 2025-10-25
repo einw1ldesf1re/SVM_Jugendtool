@@ -1,14 +1,12 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton, QTabWidget, QMessageBox, QDialog, QScrollArea, QLabel
-from PyQt6.QtCore import QDateTime, QDate, Qt
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton, QTabWidget, QMessageBox, QDialog, QScrollArea, QLabel, QToolButton, QSizePolicy
+from PyQt6.QtCore import QDateTime, QDate, Qt, QSize
 from PyQt6.QtGui import QIcon, QColor, QBrush
 from dialogs.training_dialog import TrainingDialog
 from dialogs.member_dialog import MemberDialog
-import random
-
 from db import query_db
 from datetime import datetime
+from functools import partial
 
-from pdf_export import export_youth_list, export_training_results, export_member_stats
 from pdf_printer import print_training_results, print_member_list
 
 
@@ -37,12 +35,9 @@ class MainWindow(QMainWindow):
         self.add_training_btn = QPushButton('Neues Training')
         self.edit_training_btn = QPushButton('Bearbeiten')
         self.delete_training_btn = QPushButton('Löschen')
-        self.print_training_btn = QPushButton("Drucken")
         btn_row.addWidget(self.add_training_btn)
         btn_row.addWidget(self.edit_training_btn)
         btn_row.addWidget(self.delete_training_btn)
-        self.print_training_btn.clicked.connect(self.print_selected_training)
-        btn_row.addWidget(self.print_training_btn)
         btn_row.addStretch()
         t_layout.addLayout(btn_row)
         self.trainings_table = QTableWidget(0, 3)
@@ -84,42 +79,191 @@ class MainWindow(QMainWindow):
 
         self.status = self.statusBar()
 
-        # Ergebnis Tab
-        self.results_tab = QWidget()
-        r_layout = QVBoxLayout(self.results_tab)
-        btn_row = QHBoxLayout()
-        self.add_result_btn = QPushButton("Neues Ergebnis")
-        self.edit_result_btn = QPushButton("Bearbeiten")
-        self.delete_result_btn = QPushButton("Löschen")
-        btn_row.addWidget(self.add_result_btn)
-        btn_row.addWidget(self.edit_result_btn)
-        btn_row.addWidget(self.delete_result_btn)
-        btn_row.addStretch()
-        r_layout.addLayout(btn_row)
-        self.tabs.addTab(self.results_tab, "Ergebnisse")
-        self.add_result_btn.clicked.connect(self.add_result)
-        self.edit_result_btn.clicked.connect(self.edit_result)
-        self.delete_result_btn.clicked.connect(self.delete_result)
-
     # -------------------- Trainings --------------------
     def load_trainings(self):
-        rows = query_db('SELECT * FROM training ORDER BY startzeit')
-        self.trainings_table.setRowCount(0)
-        for r in rows:
-            row_pos = self.trainings_table.rowCount()
-            self.trainings_table.insertRow(row_pos)
-            self.trainings_table.setItem(row_pos, 0, QTableWidgetItem(str(r['training_id'])))
-            
-            start_dt = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss')
-            self.trainings_table.setItem(row_pos, 1, QTableWidgetItem(start_dt.toString('dd.MM.yyyy / HH:mm') + " Uhr"))
-            
-            if r['endzeit']:
-                end_dt = QDateTime.fromString(r['endzeit'], 'yyyy-MM-dd HH:mm:ss')
-                self.trainings_table.setItem(row_pos, 2, QTableWidgetItem(end_dt.toString('dd.MM.yyyy / HH:mm') + " Uhr"))
+        # Haupt-Container leeren
+        for i in reversed(range(self.trainings_tab.layout().count())):
+            widget = self.trainings_tab.layout().itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+
+        # ScrollArea
+        scroll_area = QScrollArea()
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: palette(base);
+            }
+            QScrollArea > QWidget > QWidget {
+                background-color: palette(base);
+            }
+        """)
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        scroll_area.setWidget(scroll_widget)
+        scroll_area.setWidgetResizable(True)
+
+        self.trainings_tab.layout().addWidget(scroll_area)
+
+        # Trainings abrufen
+        trainings = query_db('SELECT * FROM training ORDER BY startzeit DESC')
+
+        for t in trainings:
+            tid = t['training_id']
+            start_dt = QDateTime.fromString(t['startzeit'], 'yyyy-MM-dd HH:mm:ss')
+            end_dt = QDateTime.fromString(t['endzeit'], 'yyyy-MM-dd HH:mm:ss') if t['endzeit'] else None
+            title_text = f"Training am {start_dt.toString('dd.MM.yyyy / HH:mm')} – {end_dt.toString('HH:mm') if end_dt else '?'} Uhr"
+
+            # Ergebnisse abrufen
+            results = query_db('''
+                SELECT e.ergebnis_id, m.vorname, m.nachname,
+                    k.name AS kategorie, a.name AS anschlag,
+                    e.schussanzahl, e.gesamtpunktzahl
+                FROM ergebnisse e
+                LEFT JOIN mitglieder m ON e.mitglied_id = m.mitglieder_id
+                LEFT JOIN kategorien k ON e.kategorie_id = k.kategorie_id
+                LEFT JOIN anschlaege a ON e.anschlag_id = a.anschlag_id
+                WHERE e.training_id = ?
+                ORDER BY k.name, a.name, e.schussanzahl, e.gesamtpunktzahl DESC
+            ''', (tid,))
+
+            # Collapsible Container
+            container = QWidget()
+            container_layout = QVBoxLayout(container)
+            container_layout.setContentsMargins(8, 8, 8, 8)
+            container.setStyleSheet("""
+                QWidget {
+                    background-color: palette(mid);
+                    border: none;
+                    border-radius: 8px;
+                }
+            """)
+
+            # Header-Widget (Titel + Buttons)
+            header_widget = QWidget()
+            header_layout = QHBoxLayout(header_widget)
+            header_layout.setContentsMargins(4, 4, 4, 4)
+            header_widget.setStyleSheet("background-color: palette(mid); border-radius: 6px;")
+
+            # --- Linker Bereich: Titel ---
+            title_label = QLabel(title_text)
+            title_label.setStyleSheet("""
+                QLabel {
+                    font-weight: bold;
+                    font-size: 14px;
+                    padding: 4px;
+                }
+                QLabel:hover {
+                    background-color: palette(light);
+                    border-radius: 4px;
+                }
+            """)
+            title_label.setCursor(Qt.CursorShape.PointingHandCursor)
+            header_layout.addWidget(title_label)
+            header_layout.addStretch()
+
+            # --- Rechter Bereich: Buttons ---
+            btn_add = QPushButton()
+            btn_add.setIcon(QIcon("assets/icons/plus.png"))
+            btn_add.setToolTip("Ergebnis hinzufügen")
+            btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_add.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                }
+                QPushButton:hover {
+                    background-color: palette(light);
+                    border-radius: 4px;
+                }
+            """)
+            header_layout.addWidget(btn_add)
+
+            btn_print = QPushButton()
+            btn_print.setIcon(QIcon("assets/icons/printer.png"))
+            btn_print.setToolTip("Training drucken")
+            btn_print.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_print.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                }
+                QPushButton:hover {
+                    background-color: palette(light);
+                    border-radius: 4px;
+                }
+            """)
+            if results:
+                header_layout.addWidget(btn_print)
+
+            # Inhalt (eingeklappt)
+            content_widget = QWidget()
+            content_layout = QVBoxLayout(content_widget)
+            content_layout.setContentsMargins(4, 4, 4, 4)
+
+            if results:
+                # Ergebnisse gruppieren
+                from collections import defaultdict
+                gruppen = defaultdict(list)
+                for r in results:
+                    key = (r['kategorie'], r['schussanzahl'], r['anschlag'] or '')
+                    gruppen[key].append(r)
+
+                # Tabellen aufbauen
+                for (kategorie, schussanzahl, anschlag), group in gruppen.items():
+                    subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
+                    subheader.setStyleSheet("font-weight: bold; margin-top: 6px; margin-bottom: 3px;")
+                    content_layout.addWidget(subheader)
+
+                    table = QTableWidget()
+                    table.setColumnCount(3)
+                    table.setHorizontalHeaderLabels(["Vorname", "Nachname", "Ergebnis"])
+                    header = table.horizontalHeader()
+                    header.setStyleSheet("""
+                        QHeaderView::section {
+                            background-color: palette(dark);
+                            font-weight: bold;
+                            font-size: 14px;
+                            padding-bottom: 2px;
+                            padding-top: 2px;
+                        }
+                    """)
+                    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                    table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                    table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                    table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+                    table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+                    table.verticalHeader().setVisible(False)
+
+                    table.setRowCount(len(group))
+                    for i, r in enumerate(group):
+                        table.setItem(i, 0, QTableWidgetItem(r['vorname']))
+                        table.setItem(i, 1, QTableWidgetItem(r['nachname']))
+                        table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
+
+                    # Dynamische Höhe
+                    total_height = table.horizontalHeader().height()
+                    for i in range(table.rowCount()):
+                        total_height += table.rowHeight(i)
+                    table.setFixedHeight(total_height + 2)
+
+                    content_layout.addWidget(table)
             else:
-                self.trainings_table.setItem(row_pos, 2, QTableWidgetItem(''))
-        
-        self.status.showMessage(f'{len(rows)} Trainings geladen')
+                content_layout.addWidget(QLabel("Noch keine Ergebnisse vorhanden"))
+
+            content_widget.setVisible(False)
+
+            def toggle_content(widget):
+                widget.setVisible(not widget.isVisible())
+
+            title_label.mousePressEvent = lambda event, w=content_widget: toggle_content(w)
+
+            # Aufbau Container
+            container_layout.addWidget(header_widget)
+            container_layout.addWidget(content_widget)
+            scroll_layout.addWidget(container)
+            scroll_layout.addSpacing(10)
+
+
 
     def add_training(self):
         dlg = TrainingDialog(self)
@@ -127,8 +271,11 @@ class MainWindow(QMainWindow):
             data = dlg.get_data()
             query_db('INSERT INTO training (startzeit, endzeit) VALUES (?, ?)', (data['startzeit'], data['endzeit']))
             tid = query_db('SELECT last_insert_rowid() as id', single=True)['id']
-            for cid in data['categories']:
-                query_db('INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)', (tid, cid))
+            for cid in set(data['categories']):
+                query_db(
+                    'INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)', 
+                    (tid, cid)
+                )
             self.load_trainings()
             self.status.showMessage('Training hinzugefügt', 3000)
 
@@ -226,152 +373,6 @@ class MainWindow(QMainWindow):
             self.load_members()
             self.status.showMessage('Mitglied gelöscht', 3000)
 
-    # -------------------- Ergebnisse --------------------
-    def load_results(self):
-        # Clear existing layout
-        for i in reversed(range(self.results_tab.layout().count())):
-            widget = self.results_tab.layout().itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
-
-        scroll_area = QScrollArea()
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout(scroll_widget)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(scroll_widget)
-        self.results_tab.layout().addWidget(scroll_area)
-
-        trainings = query_db('SELECT training_id, startzeit, endzeit FROM training ORDER BY startzeit DESC')
-
-        self.training_tables.clear()
-        self.current_result_row = None
-        self.current_table = None
-
-        for t in trainings:
-            tid = t['training_id']
-
-            # Trainingscontainer für visuellen Abstand
-            training_frame = QWidget()
-            training_layout = QVBoxLayout(training_frame)
-            # training_frame.setStyleSheet("background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 5px;")
-            training_layout.setContentsMargins(5, 5, 5, 5)
-            scroll_layout.addWidget(training_frame)
-            scroll_layout.addSpacing(10)
-
-            start_dt = QDateTime.fromString(t['startzeit'], 'yyyy-MM-dd HH:mm:ss')
-            end_dt = QDateTime.fromString(t['endzeit'], 'yyyy-MM-dd HH:mm:ss') if t['endzeit'] else None
-            title_text = f"Training am {start_dt.toString('dd.MM.yyyy / HH:mm')} – {end_dt.toString('HH:mm') if end_dt else '?'} Uhr"
-
-            title_layout = QHBoxLayout()
-            title_label = QLabel(title_text)
-            title_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
-            title_layout.addWidget(title_label)
-            title_layout.addStretch()
-            training_layout.addLayout(title_layout)
-
-            results = query_db('''
-                SELECT e.ergebnis_id as id, m.vorname, m.nachname,
-                    k.name AS kategorie, a.name AS anschlag,
-                    e.schussanzahl, e.gesamtpunktzahl
-                FROM ergebnisse e
-                LEFT JOIN mitglieder m ON e.mitglied_id = m.mitglieder_id
-                LEFT JOIN kategorien k ON e.kategorie_id = k.kategorie_id
-                LEFT JOIN anschlaege a ON e.anschlag_id = a.anschlag_id
-                WHERE e.training_id=?
-                ORDER BY k.name, a.name, e.schussanzahl, e.gesamtpunktzahl DESC
-            ''', (tid,))
-
-            from collections import defaultdict
-            gruppen = defaultdict(list)
-            for r in results:
-                key = (r['kategorie'], r['schussanzahl'], r['anschlag'] or '')
-                gruppen[key].append(r)
-
-            for (kategorie, schussanzahl, anschlag), group_results in gruppen.items():
-                subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
-                subheader.setStyleSheet("font-weight: bold; margin-top: 10px;")
-                training_layout.addWidget(subheader)
-
-                table = QTableWidget()
-                table.setColumnCount(4)
-                table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Ergebnis'])
-                table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-                table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-                table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-                table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-                table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-
-                table.setRowCount(len(group_results))
-                for row_idx, r in enumerate(group_results):
-                    table.setItem(row_idx, 0, QTableWidgetItem(str(r['id'])))
-                    table.setItem(row_idx, 1, QTableWidgetItem(r['vorname']))
-                    table.setItem(row_idx, 2, QTableWidgetItem(r['nachname']))
-                    table.setItem(row_idx, 3, QTableWidgetItem(str(r['gesamtpunktzahl'] or '')))
-
-                table.setColumnHidden(0, True)  # ID-Spalte verstecken
-
-                # Automatische Höhe
-                table_height = table.horizontalHeader().height()
-                for row in range(table.rowCount()):
-                    table_height += table.rowHeight(row)
-                table.setFixedHeight(table_height + 2)
-
-                table.cellClicked.connect(lambda row, col, t=table: self.select_result_row(t, row))
-
-                training_layout.addWidget(table)
-                # Speicherung nach Tabellenobjekt, nicht nach ID
-                self.training_tables[table] = True
-
-    def select_result_row(self, table, row):
-        self.current_table = table
-        self.current_result_row = row
-
-    def edit_result(self):
-        if self.current_table is None or self.current_result_row is None:
-            QMessageBox.information(self, "Auswahl fehlt", "Bitte wähle ein Ergebnis aus.")
-            return
-        eid_item = self.current_table.item(self.current_result_row, 0)
-        eid = int(eid_item.text())
-        from dialogs.result_dialog import ResultDialog
-        rec = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
-        dlg = ResultDialog(self, data=rec)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            data = dlg.get_data()
-            query_db('''
-                UPDATE ergebnisse
-                SET training_id=?, mitglied_id=?, kategorie_id=?, anschlag_id=?, schussanzahl=?, gesamtpunktzahl=?
-                WHERE ergebnis_id=?
-            ''', (data['training_id'], data['mitglied_id'], data['kategorie_id'],
-                data['anschlag_id'], data['schussanzahl'], data['gesamtpunktzahl'], eid))
-            self.load_results()
-            self.status.showMessage("Ergebnis aktualisiert", 3000)
-
-    def delete_result(self):
-        if self.current_table is None or self.current_result_row is None:
-            QMessageBox.information(self, "Auswahl fehlt", "Bitte wähle ein Ergebnis aus.")
-            return
-        eid_item = self.current_table.item(self.current_result_row, 0)
-        eid = int(eid_item.text())
-        ok = QMessageBox.question(self, "Löschen", "Willst du dieses Ergebnis wirklich löschen?")
-        if ok == QMessageBox.StandardButton.Yes:
-            query_db('DELETE FROM ergebnisse WHERE ergebnis_id=?', (eid,))
-            self.load_results()
-            self.status.showMessage("Ergebnis gelöscht", 3000)
-
-
-
-    def add_result(self):
-        from dialogs.result_dialog import ResultDialog
-        dlg = ResultDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            data = dlg.get_data()
-            query_db('''
-                INSERT INTO ergebnisse (training_id, mitglied_id, kategorie_id, anschlag_id, schussanzahl, gesamtpunktzahl)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (data['training_id'], data['mitglied_id'], data['kategorie_id'], data['anschlag_id'], data['schussanzahl'], data['gesamtpunktzahl']))
-            self.load_results()
-            self.status.showMessage("Ergebnis hinzugefügt", 3000)
-
     # -------------------- Drucken --------------------
     def print_selected_training(self):
         row = self.trainings_table.currentRow()
@@ -385,4 +386,3 @@ class MainWindow(QMainWindow):
     def load_all(self):
         self.load_trainings()
         self.load_members()
-        self.load_results()
