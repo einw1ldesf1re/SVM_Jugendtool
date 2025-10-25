@@ -250,9 +250,22 @@ class MainWindow(QMainWindow):
                     content_layout.addWidget(subheader)
 
                     table = QTableWidget()
-                    table.setColumnCount(3)
-                    table.setHorizontalHeaderLabels(["Vorname", "Nachname", "Ergebnis"])
-                    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+                    table.setColumnCount(4)
+                    table.setHorizontalHeaderLabels(["Vorname", "Nachname", "Ergebnis", ""])
+                    table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+                    table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+                    table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+                    table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+
+                    header = table.horizontalHeader()
+                    header.setStyleSheet("""
+                        QHeaderView::section {
+                            background-color: palette(dark);
+                            font-weight: bold;
+                            font-size: 14px;
+                            padding: 2px 0px;
+                        }
+                    """)
                     table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
                     table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
                     table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -264,6 +277,54 @@ class MainWindow(QMainWindow):
                         table.setItem(i, 0, QTableWidgetItem(r['vorname']))
                         table.setItem(i, 1, QTableWidgetItem(r['nachname']))
                         table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
+
+                        btn_widget = QWidget()
+                        btn_layout = QHBoxLayout(btn_widget)
+                        btn_layout.setContentsMargins(0, 0, 0, 0)
+                        btn_layout.setSpacing(2)
+
+                        btn_edit = QPushButton()
+                        btn_edit.setIcon(QIcon("assets/icons/edit.png"))
+                        btn_edit.setToolTip("Ergebnis bearbeiten")
+                        btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+                        btn_edit.setFixedSize(24, 24)
+                        btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+                        btn_edit.setStyleSheet("""
+                            QPushButton {
+                                border: none;
+                                padding-top: 2px;
+                                padding-bottom: 2px;
+                            }
+                            QPushButton:hover {
+                                background-color: palette(light);
+                                border-radius: 4px;
+                            }
+                        """)
+                        btn_edit.clicked.connect(lambda checked, eid=r['ergebnis_id']: self.edit_result_by_id(eid))
+                        btn_layout.addWidget(btn_edit)
+
+                        btn_delete = QPushButton()
+                        btn_delete.setIcon(QIcon("assets/icons/trash.png"))
+                        btn_delete.setToolTip("Ergebnis löschen")
+                        btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+                        btn_delete.setFixedSize(24, 24)
+                        btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+                        btn_delete.setStyleSheet("""
+                            QPushButton {
+                                border: none;
+                                padding-top: 2px;
+                                padding-bottom: 2px;
+                            }
+                            QPushButton:hover {
+                                background-color: palette(light);
+                                border-radius: 4px;
+                            }
+                        """)
+                        btn_delete.clicked.connect(lambda checked, eid=r['ergebnis_id']: self.delete_result_by_id(eid))
+                        btn_layout.addWidget(btn_delete)
+
+                        btn_layout.addStretch()
+                        table.setCellWidget(i, 3, btn_widget)
 
                     # Automatische Höhe der Tabelle
                     table_height = table.horizontalHeader().height()
@@ -384,6 +445,63 @@ class MainWindow(QMainWindow):
 
             self.load_trainings()
             self.status.showMessage('Training hinzugefügt', 3000)
+
+    def edit_result_by_id(self, eid):
+        """Ergebnis bearbeiten."""
+        # Ergebnis-Daten abrufen
+        data = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
+        if not data:
+            QMessageBox.warning(self, "Fehler", "Das Ergebnis existiert nicht mehr.")
+            self.load_trainings()
+            return
+
+        tid = data['training_id']  # Training-ID aus dem Ergebnis
+
+        # Dialog zum Bearbeiten öffnen und tid übergeben
+        dlg = ResultDialog(self, tid=tid, data=data)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_data = dlg.get_data()
+
+            # Prüfen, ob identisches Ergebnis bereits existiert
+            exists = query_db('''
+                SELECT 1 FROM ergebnisse
+                WHERE training_id=? AND mitglied_id=? AND kategorie_id=? 
+                AND anschlag_id IS ? AND schussanzahl=? AND ergebnis_id != ?
+            ''', (
+                new_data['training_id'], new_data['mitglied_id'], new_data['kategorie_id'],
+                new_data['anschlag_id'], new_data['schussanzahl'], eid
+            ), single=True)
+
+            if exists:
+                QMessageBox.warning(self, "Fehler", "Für dieses Mitglied existiert bereits ein Ergebnis mit diesen Angaben!")
+                return
+
+            # Ergebnis aktualisieren
+            query_db('''
+                UPDATE ergebnisse
+                SET mitglied_id=?, kategorie_id=?, anschlag_id=?, schussanzahl=?, gesamtpunktzahl=?
+                WHERE ergebnis_id=?
+            ''', (
+                new_data['mitglied_id'], new_data['kategorie_id'], new_data['anschlag_id'],
+                new_data['schussanzahl'], new_data['gesamtpunktzahl'], eid
+            ))
+
+            self.load_trainings()
+            self.status.showMessage("Ergebnis aktualisiert", 3000)
+
+
+    def delete_result_by_id(self, eid):
+        """Ergebnis löschen."""
+        confirm = QMessageBox.question(
+            self,
+            "Ergebnis löschen",
+            "Willst du dieses Ergebnis wirklich löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if confirm == QMessageBox.StandardButton.Yes:
+            query_db('DELETE FROM ergebnisse WHERE ergebnis_id=?', (eid,))
+            self.load_trainings()
+            self.status.showMessage("Ergebnis gelöscht", 3000)
 
     def delete_training_by_id(self, tid):
         ok = QMessageBox.question(

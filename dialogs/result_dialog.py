@@ -9,6 +9,9 @@ class ResultDialog(QDialog):
         self.data = data
         self.tid = tid  # die übergebene training_id
         self.setup_ui()
+        if self.tid:
+            self.update_categories_for_training()
+            
         if data:
             self.load_data(data)
         else:
