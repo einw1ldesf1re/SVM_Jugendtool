@@ -3,6 +3,7 @@ from PyQt6.QtCore import QDateTime, QDate, Qt, QSize
 from PyQt6.QtGui import QIcon, QColor, QBrush
 from dialogs.training_dialog import TrainingDialog
 from dialogs.member_dialog import MemberDialog
+from dialogs.result_dialog import ResultDialog
 from db import query_db
 from datetime import datetime
 from functools import partial
@@ -174,6 +175,25 @@ class MainWindow(QMainWindow):
                 }
             """)
             header_layout.addWidget(btn_add)
+            btn_add.clicked.connect(lambda checked, tid=tid: self.add_results_by_id(tid))
+
+            btn_edit = QPushButton()
+            btn_edit.setIcon(QIcon("assets/icons/edit.png"))
+            btn_edit.setToolTip("Training bearbeiten")
+            btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_edit.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    padding-top: 2px;
+                    padding-bottom: 2px;
+                }
+                QPushButton:hover {
+                    background-color: palette(light);
+                    border-radius: 4px;
+                }
+            """)
+            header_layout.addWidget(btn_edit)
+            btn_edit.clicked.connect(lambda checked, tid=tid: self.edit_training_by_id(tid))
 
             btn_delete = QPushButton()
             btn_delete.setIcon(QIcon("assets/icons/trash.png"))
@@ -218,32 +238,20 @@ class MainWindow(QMainWindow):
             content_layout.setContentsMargins(4, 4, 4, 4)
 
             if results:
-                # Ergebnisse gruppieren
                 from collections import defaultdict
                 gruppen = defaultdict(list)
                 for r in results:
                     key = (r['kategorie'], r['schussanzahl'], r['anschlag'] or '')
                     gruppen[key].append(r)
 
-                # Tabellen aufbauen
                 for (kategorie, schussanzahl, anschlag), group in gruppen.items():
                     subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
-                    subheader.setStyleSheet("font-weight: bold; margin-top: 6px; margin-bottom: 3px;")
+                    subheader.setStyleSheet("font-weight: bold; margin: 0; margin-top: 10px; margin-bottom: 2px; padding: 2px 0;")
                     content_layout.addWidget(subheader)
 
                     table = QTableWidget()
                     table.setColumnCount(3)
                     table.setHorizontalHeaderLabels(["Vorname", "Nachname", "Ergebnis"])
-                    header = table.horizontalHeader()
-                    header.setStyleSheet("""
-                        QHeaderView::section {
-                            background-color: palette(dark);
-                            font-weight: bold;
-                            font-size: 14px;
-                            padding-bottom: 2px;
-                            padding-top: 2px;
-                        }
-                    """)
                     table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
                     table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
                     table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -257,16 +265,29 @@ class MainWindow(QMainWindow):
                         table.setItem(i, 1, QTableWidgetItem(r['nachname']))
                         table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
 
-                    # Dynamische Höhe
-                    total_height = table.horizontalHeader().height()
-                    for i in range(table.rowCount()):
-                        total_height += table.rowHeight(i)
-                    table.setFixedHeight(total_height + 2)
+                    # Automatische Höhe der Tabelle
+                    table_height = table.horizontalHeader().height()
+                    for row in range(table.rowCount()):
+                        table_height += table.rowHeight(row)
+                    table.setFixedHeight(table_height)
+
+                    table.setSizePolicy(
+                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Fixed  # wichtig: Höhe fix, passt sich Inhalt an
+                    )
 
                     content_layout.addWidget(table)
-            else:
-                content_layout.addWidget(QLabel("Noch keine Ergebnisse vorhanden"))
 
+            else:
+                lbl_empty = QLabel("Noch keine Ergebnisse vorhanden")
+                lbl_empty.setContentsMargins(0, 0, 0, 0)
+                content_layout.addWidget(lbl_empty)
+
+            content_widget.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed  # Container passt sich dem Inhalt an
+            )
+            content_widget.adjustSize()
             content_widget.setVisible(False)
 
             def toggle_content(widget):
@@ -281,6 +302,41 @@ class MainWindow(QMainWindow):
             scroll_layout.addSpacing(10)
 
 
+    def add_results_by_id(self, tid):
+        # tid wird hier direkt übergeben
+        dlg = ResultDialog(self, tid=tid)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            data = dlg.get_data()
+
+            # Prüfen, ob das Ergebnis schon existiert
+            exists = query_db('''
+                SELECT 1 FROM ergebnisse
+                WHERE training_id=? AND mitglied_id=? AND kategorie_id=? 
+                AND anschlag_id IS ? AND schussanzahl=?
+            ''', (
+                data['training_id'], data['mitglied_id'], data['kategorie_id'],
+                data['anschlag_id'], data['schussanzahl']
+            ), single=True)
+
+            if exists:
+                QMessageBox.warning(
+                    self, 
+                    "Fehler", 
+                    "Für dieses Mitglied existiert bereits ein Ergebnis mit diesen Angaben!"
+                )
+                return
+
+            # Ergebnis einfügen
+            query_db('''
+                INSERT INTO ergebnisse (training_id, mitglied_id, kategorie_id, anschlag_id, schussanzahl, gesamtpunktzahl)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                data['training_id'], data['mitglied_id'], data['kategorie_id'], 
+                data['anschlag_id'], data['schussanzahl'], data['gesamtpunktzahl']
+            ))
+
+            self.load_trainings()
+            self.status.showMessage("Ergebnis hinzugefügt", 3000)
 
     def add_training(self):
 
@@ -352,20 +408,42 @@ class MainWindow(QMainWindow):
     def print_training_by_id(self, tid):
             print_training_results(tid, self)
     
-    def edit_training(self):
-        sel = self.trainings_table.currentRow()
-        if sel < 0:
-            QMessageBox.information(self, 'Auswahl fehlt', 'Bitte wähle ein Training aus.')
-            return
-        tid = int(self.trainings_table.item(sel,0).text())
+    def edit_training_by_id(self, tid):
+        # Aktuelle Daten abrufen
         rec = query_db('SELECT * FROM training WHERE training_id=?', (tid,), single=True)
         dlg = TrainingDialog(self, data=rec)
+        
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
-            query_db('UPDATE training SET startzeit=?, endzeit=? WHERE training_id=?', (data['startzeit'], data['endzeit'], tid))
+
+            # 1️⃣ Start- und Endzeit auf volle Minuten setzen (Sekunden = 00)
+            start_dt = datetime.strptime(data['startzeit'], '%Y-%m-%d %H:%M:%S').replace(second=0)
+            end_dt = None
+            if data['endzeit']:
+                end_dt = datetime.strptime(data['endzeit'], '%Y-%m-%d %H:%M:%S').replace(second=0)
+
+            start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+            end_str = end_dt.strftime('%Y-%m-%d %H:%M:%S') if end_dt else None
+
+            # 2️⃣ Prüfen auf doppelte Startzeit (außer beim aktuellen Training)
+            duplicate = query_db(
+                'SELECT training_id FROM training WHERE startzeit=? AND training_id<>?',
+                (start_str, tid),
+                single=True
+            )
+            if duplicate:
+                QMessageBox.warning(self, 'Fehler', 'Für diese Startzeit existiert bereits ein Training!')
+                return
+
+            # 3️⃣ Update in Datenbank
+            query_db('UPDATE training SET startzeit=?, endzeit=? WHERE training_id=?', (start_str, end_str, tid))
+
+            # 4️⃣ Kategorien aktualisieren
             query_db('DELETE FROM training_kategorien WHERE training_id=?', (tid,))
-            for cid in data['categories']:
+            for cid in set(data['categories']):
                 query_db('INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)', (tid, cid))
+
+            # 5️⃣ UI aktualisieren
             self.load_trainings()
             self.status.showMessage('Training aktualisiert', 3000)
 
