@@ -33,11 +33,7 @@ class MainWindow(QMainWindow):
         t_layout = QVBoxLayout(self.trainings_tab)
         btn_row = QHBoxLayout()
         self.add_training_btn = QPushButton('Neues Training')
-        self.edit_training_btn = QPushButton('Bearbeiten')
-        self.delete_training_btn = QPushButton('Löschen')
         btn_row.addWidget(self.add_training_btn)
-        btn_row.addWidget(self.edit_training_btn)
-        btn_row.addWidget(self.delete_training_btn)
         btn_row.addStretch()
         t_layout.addLayout(btn_row)
         self.trainings_table = QTableWidget(0, 3)
@@ -47,8 +43,6 @@ class MainWindow(QMainWindow):
         self.trainings_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         t_layout.addWidget(self.trainings_table)
         self.add_training_btn.clicked.connect(self.add_training)
-        self.edit_training_btn.clicked.connect(self.edit_training)
-        self.delete_training_btn.clicked.connect(self.delete_training)
         self.tabs.addTab(self.trainings_tab, 'Trainings')
 
         # Mitglieder Tab
@@ -171,6 +165,8 @@ class MainWindow(QMainWindow):
             btn_add.setStyleSheet("""
                 QPushButton {
                     border: none;
+                    padding-top: 2px;
+                    padding-bottom: 2px;
                 }
                 QPushButton:hover {
                     background-color: palette(light);
@@ -179,6 +175,24 @@ class MainWindow(QMainWindow):
             """)
             header_layout.addWidget(btn_add)
 
+            btn_delete = QPushButton()
+            btn_delete.setIcon(QIcon("assets/icons/trash.png"))
+            btn_delete.setToolTip("Training löschen")
+            btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_delete.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    padding-top: 2px;
+                    padding-bottom: 2px;
+                }
+                QPushButton:hover {
+                    background-color: palette(light);
+                    border-radius: 4px;
+                }
+            """)
+            header_layout.addWidget(btn_delete)
+            btn_delete.clicked.connect(lambda checked, tid=tid: self.delete_training_by_id(tid))
+
             btn_print = QPushButton()
             btn_print.setIcon(QIcon("assets/icons/printer.png"))
             btn_print.setToolTip("Training drucken")
@@ -186,6 +200,8 @@ class MainWindow(QMainWindow):
             btn_print.setStyleSheet("""
                 QPushButton {
                     border: none;
+                    padding-top: 2px;
+                    padding-bottom: 2px;
                 }
                 QPushButton:hover {
                     background-color: palette(light);
@@ -194,6 +210,7 @@ class MainWindow(QMainWindow):
             """)
             if results:
                 header_layout.addWidget(btn_print)
+                btn_print.clicked.connect(lambda checked, tid=tid: self.print_training_by_id(tid))
 
             # Inhalt (eingeklappt)
             content_widget = QWidget()
@@ -266,19 +283,75 @@ class MainWindow(QMainWindow):
 
 
     def add_training(self):
+
         dlg = TrainingDialog(self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
-            query_db('INSERT INTO training (startzeit, endzeit) VALUES (?, ?)', (data['startzeit'], data['endzeit']))
+
+            # Sekunden auf 00 setzen
+            from datetime import datetime
+            start_dt = datetime.strptime(data['startzeit'], "%Y-%m-%d %H:%M:%S")
+            start_dt = start_dt.replace(second=0)
+            end_dt = None
+            if data['endzeit']:
+                end_dt = datetime.strptime(data['endzeit'], "%Y-%m-%d %H:%M:%S")
+                end_dt = end_dt.replace(second=0)
+
+            # Prüfen, ob zu dieser Startzeit schon ein Training existiert
+            exists = query_db(
+                'SELECT 1 FROM training WHERE startzeit = ?',
+                (start_dt.strftime("%Y-%m-%d %H:%M:%S"),),
+                single=True
+            )
+            if exists:
+                QMessageBox.warning(
+                    self,
+                    'Fehler',
+                    'Zu dieser Startzeit existiert bereits ein Training!'
+                )
+                return
+
+            # Training einfügen
+            query_db(
+                'INSERT INTO training (startzeit, endzeit) VALUES (?, ?)',
+                (start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                end_dt.strftime("%Y-%m-%d %H:%M:%S") if end_dt else None)
+            )
             tid = query_db('SELECT last_insert_rowid() as id', single=True)['id']
+
+            # Kategorien einfügen (ohne Duplikate)
             for cid in set(data['categories']):
                 query_db(
-                    'INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)', 
+                    'INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)',
                     (tid, cid)
                 )
+
             self.load_trainings()
             self.status.showMessage('Training hinzugefügt', 3000)
 
+    def delete_training_by_id(self, tid):
+        ok = QMessageBox.question(
+            self, 
+            'Löschen', 
+            'Willst du dieses Training wirklich löschen?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if ok != QMessageBox.StandardButton.Yes:
+            return
+
+        query_db('DELETE FROM ergebnisse WHERE training_id=?', (tid,))
+
+        query_db('DELETE FROM training_kategorien WHERE training_id=?', (tid,))
+
+        query_db('DELETE FROM training WHERE training_id=?', (tid,))
+
+        # Trainingsliste neu laden
+        self.load_trainings()
+        self.status.showMessage('Training und alle zugehörigen Daten gelöscht', 3000)
+
+    def print_training_by_id(self, tid):
+            print_training_results(tid, self)
+    
     def edit_training(self):
         sel = self.trainings_table.currentRow()
         if sel < 0:
@@ -295,18 +368,6 @@ class MainWindow(QMainWindow):
                 query_db('INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)', (tid, cid))
             self.load_trainings()
             self.status.showMessage('Training aktualisiert', 3000)
-
-    def delete_training(self):
-        sel = self.trainings_table.currentRow()
-        if sel < 0:
-            QMessageBox.information(self, 'Auswahl fehlt', 'Bitte wähle ein Training aus.')
-            return
-        tid = int(self.trainings_table.item(sel,0).text())
-        ok = QMessageBox.question(self, 'Löschen', 'Willst du dieses Training wirklich löschen?')
-        if ok == QMessageBox.StandardButton.Yes:
-            query_db('DELETE FROM training WHERE training_id=?', (tid,))
-            self.load_trainings()
-            self.status.showMessage('Training gelöscht', 3000)
 
     # -------------------- Mitglieder --------------------
     def load_members(self):
@@ -374,11 +435,6 @@ class MainWindow(QMainWindow):
             self.status.showMessage('Mitglied gelöscht', 3000)
 
     # -------------------- Drucken --------------------
-    def print_selected_training(self):
-        row = self.trainings_table.currentRow()
-        if row >= 0:
-            training_id = self.trainings_table.item(row, 0).text()
-            print_training_results(training_id, self)
 
     def print_member_list(self):
         print_member_list(self)
