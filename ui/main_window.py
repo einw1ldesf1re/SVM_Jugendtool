@@ -8,7 +8,7 @@ from db import query_db
 from datetime import datetime
 from functools import partial
 
-from pdf_printer import print_training_results, print_member_list
+from pdf_printer import print_training_results, print_member_list, print_member_statistics
 
 
 class MainWindow(QMainWindow):
@@ -51,12 +51,8 @@ class MainWindow(QMainWindow):
         m_layout = QVBoxLayout(self.members_tab)
         m_btn_row = QHBoxLayout()
         self.add_member_btn = QPushButton('Neues Mitglied')
-        self.edit_member_btn = QPushButton('Bearbeiten')
-        self.delete_member_btn = QPushButton('Löschen')
         self.export_youth_btn = QPushButton("Drucken")
         m_btn_row.addWidget(self.add_member_btn)
-        m_btn_row.addWidget(self.edit_member_btn)
-        m_btn_row.addWidget(self.delete_member_btn)
         m_btn_row.addWidget(self.export_youth_btn)
         self.export_youth_btn.clicked.connect(self.print_member_list)
         m_btn_row.addStretch()
@@ -68,8 +64,6 @@ class MainWindow(QMainWindow):
         self.member_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         m_layout.addWidget(self.member_table)
         self.add_member_btn.clicked.connect(self.add_member)
-        self.edit_member_btn.clicked.connect(self.edit_member)
-        self.delete_member_btn.clicked.connect(self.delete_member)
         self.tabs.addTab(self.members_tab, 'Mitglieder')
 
         self.status = self.statusBar()
@@ -362,7 +356,6 @@ class MainWindow(QMainWindow):
             scroll_layout.addWidget(container)
             scroll_layout.addSpacing(10)
 
-
     def add_results_by_id(self, tid):
         # tid wird hier direkt übergeben
         dlg = ResultDialog(self, tid=tid)
@@ -429,18 +422,20 @@ class MainWindow(QMainWindow):
                 return
 
             # Training einfügen
-            query_db(
+            tid = query_db(
                 'INSERT INTO training (startzeit, endzeit) VALUES (?, ?)',
                 (start_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                end_dt.strftime("%Y-%m-%d %H:%M:%S") if end_dt else None)
+                end_dt.strftime("%Y-%m-%d %H:%M:%S") if end_dt else None),
+                commit=True,
+                return_id=True
             )
-            tid = query_db('SELECT last_insert_rowid() as id', single=True)['id']
 
             # Kategorien einfügen (ohne Duplikate)
             for cid in set(data['categories']):
                 query_db(
                     'INSERT INTO training_kategorien (training_id, kategorie_id) VALUES (?, ?)',
-                    (tid, cid)
+                    (tid, cid),
+                    commit=True
                 )
 
             self.load_trainings()
@@ -488,7 +483,6 @@ class MainWindow(QMainWindow):
 
             self.load_trainings()
             self.status.showMessage("Ergebnis aktualisiert", 3000)
-
 
     def delete_result_by_id(self, eid):
         """Ergebnis löschen."""
@@ -569,71 +563,181 @@ class MainWindow(QMainWindow):
     def load_members(self):
         rows = query_db('SELECT * FROM mitglieder ORDER BY nachname')
         self.member_table.setRowCount(0)
+        self.member_table.setColumnCount(5)
+
+        # --- Tabellenkopf ---
+        self.member_table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Geburtsdatum', ''])
+        self.member_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.member_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.member_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.member_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.member_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+
+        self.member_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.member_table.verticalHeader().setVisible(False)
+        self.member_table.setIconSize(QSize(16, 16))
+
         for r in rows:
             row_pos = self.member_table.rowCount()
             self.member_table.insertRow(row_pos)
+
+            # --- Spalten befüllen ---
             self.member_table.setItem(row_pos, 0, QTableWidgetItem(str(r['mitglieder_id'])))
             self.member_table.setItem(row_pos, 1, QTableWidgetItem(r['vorname']))
             self.member_table.setItem(row_pos, 2, QTableWidgetItem(r['nachname']))
 
+            # --- Geburtstag + Alter ---
             birthday = QDate.fromString(r['geburtsdatum'], 'yyyy-MM-dd')
             today = QDate.currentDate()
-            age = today.year() - birthday.year()
-            if (today.month(), today.day()) < (birthday.month(), birthday.day()):
-                age -= 1
-            display_text = birthday.toString('dd.MM.yyyy')
-            item = QTableWidgetItem(display_text)
-            if age >= 18:
-                item.setText("⚠ " + display_text)
-                item.setForeground(QBrush(QColor("red")))
+            if birthday.isValid():
+                age = today.year() - birthday.year()
+                if (today.month(), today.day()) < (birthday.month(), birthday.day()):
+                    age -= 1
+
+                display_text = birthday.toString('dd.MM.yyyy')
+                item = QTableWidgetItem(display_text)
+                if age >= 18:
+                    item.setText(f"⚠ {display_text}")
+                    item.setForeground(QBrush(QColor("red")))
+            else:
+                item = QTableWidgetItem("–")
             self.member_table.setItem(row_pos, 3, item)
 
-        self.member_table.setColumnCount(4)
-        self.member_table.setHorizontalHeaderLabels(['ID','Vorname','Nachname','Geburtsdatum'])
-        self.member_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.member_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.status.showMessage(f'{len(rows)} Mitglieder geladen')
+            # --- Button ---
+            btn_widget = QWidget()
+            btn_layout = QHBoxLayout(btn_widget)
+            btn_layout.setContentsMargins(0, 0, 0, 0)
+            btn_layout.setSpacing(4)
+
+            btn_stats = QPushButton()
+            btn_stats.setIcon(QIcon("assets/icons/diagram.png"))
+            btn_stats.setToolTip("Mitglied statistiken")
+            btn_stats.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_stats.setFixedSize(24, 24)
+            btn_stats.setStyleSheet("""
+                    QPushButton {
+                        border: none;
+                        padding-top: 2px;
+                        padding-bottom: 2px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
+            btn_stats.clicked.connect(lambda checked, mid=r['mitglieder_id']: self.print_member_stats_by_id(mid))
+            btn_layout.addWidget(btn_stats, alignment=Qt.AlignmentFlag.AlignCenter)
+
+            btn_edit = QPushButton()
+            btn_edit.setIcon(QIcon("assets/icons/edit.png"))
+            btn_edit.setToolTip("Mitglied bearbeiten")
+            btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_edit.setFixedSize(24, 24)
+            btn_edit.setStyleSheet("""
+                    QPushButton {
+                        border: none;
+                        padding-top: 2px;
+                        padding-bottom: 2px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
+            btn_edit.clicked.connect(lambda checked, mid=r['mitglieder_id']: self.edit_member_by_id(mid))
+            btn_layout.addWidget(btn_edit, alignment=Qt.AlignmentFlag.AlignCenter)
+
+            btn_delete = QPushButton()
+            btn_delete.setIcon(QIcon("assets/icons/trash.png"))
+            btn_delete.setToolTip("Mitglied bearbeiten")
+            btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_delete.setFixedSize(24, 24)
+            btn_delete.setStyleSheet("""
+                    QPushButton {
+                        border: none;
+                        padding-top: 2px;
+                        padding-bottom: 2px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
+            btn_delete.clicked.connect(lambda checked, mid=r['mitglieder_id']: self.delete_member_by_id(mid))
+            btn_layout.addWidget(btn_delete, alignment=Qt.AlignmentFlag.AlignCenter)
+
+            btn_widget.setLayout(btn_layout)
+            self.member_table.setCellWidget(row_pos, 4, btn_widget)
+            self.member_table.setRowHeight(row_pos, 28)
+
+        self.status.showMessage(f"{len(rows)} Mitglieder geladen", 3000)
 
     def add_member(self):
+        """Fügt ein neues Mitglied hinzu."""
         dlg = MemberDialog(self)
         if dlg.exec() == dlg.DialogCode.Accepted:
             data = dlg.get_data()
-            query_db('INSERT INTO mitglieder (vorname, nachname, geburtsdatum) VALUES (?, ?, ?)',
-                    (data['vorname'], data['nachname'], data['geburtsdatum']))
+            query_db(
+                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum) VALUES (?, ?, ?)',
+                (data['vorname'], data['nachname'], data['geburtsdatum'])
+            )
             self.load_members()
-            self.status.showMessage('Mitglied hinzugefügt', 3000)
+            self.status.showMessage("Mitglied hinzugefügt", 3000)
 
-    def edit_member(self):
-        sel = self.member_table.currentRow()
-        if sel < 0:
-            QMessageBox.information(self, 'Auswahl fehlt', 'Bitte wähle ein Mitglied aus.')
+    def edit_member_by_id(self, mid):
+        """Bearbeitet das aktuell ausgewählte Mitglied."""
+        rec = query_db('SELECT * FROM mitglieder WHERE mitglieder_id=?', (mid,), single=True)
+        if not rec:
+            QMessageBox.warning(self, "Fehler", "Das ausgewählte Mitglied existiert nicht mehr.")
+            self.load_members()
             return
-        pid = int(self.member_table.item(sel,0).text())
-        rec = query_db('SELECT * FROM mitglieder WHERE mitglieder_id=?', (pid,), single=True)
+
         dlg = MemberDialog(self, data=rec)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
-            query_db('UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=? WHERE mitglieder_id=?',
-                    (data['vorname'], data['nachname'], data['geburtsdatum'], pid))
+            query_db(
+                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=? WHERE mitglieder_id=?',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], mid)
+            )
             self.load_members()
-            self.status.showMessage('Mitglied aktualisiert', 3000)
+            self.status.showMessage("Mitglied aktualisiert", 3000)
 
-    def delete_member(self):
-        sel = self.member_table.currentRow()
-        if sel < 0:
-            QMessageBox.information(self, 'Auswahl fehlt', 'Bitte wähle ein Mitglied aus.')
+
+    def delete_member_by_id(self, mid):
+        """Löscht ein Mitglied und alle zugehörigen Ergebnisse nach Bestätigung."""
+        # Sicherheitsabfrage
+        confirm = QMessageBox.question(
+            self,
+            "Mitglied löschen",
+            "Willst du dieses Mitglied wirklich löschen?\n\n"
+            "⚠ Dabei werden auch alle Ergebnisse dieses Mitglieds dauerhaft gelöscht!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if confirm != QMessageBox.StandardButton.Yes:
             return
-        pid = int(self.member_table.item(sel,0).text())
-        ok = QMessageBox.question(self, 'Löschen', 'Willst du dieses Mitglied wirklich löschen?')
-        if ok == QMessageBox.StandardButton.Yes:
-            query_db('DELETE FROM mitglieder WHERE mitglieder_id=?', (pid,))
+
+        try:
+            # --- Zuerst Ergebnisse löschen ---
+            query_db("DELETE FROM ergebnisse WHERE mitglied_id=?", (mid,))
+
+            # --- Dann Mitglied löschen ---
+            query_db("DELETE FROM mitglieder WHERE mitglieder_id=?", (mid,))
+
+            # --- UI aktualisieren ---
             self.load_members()
-            self.status.showMessage('Mitglied gelöscht', 3000)
+            self.status.showMessage("Mitglied und zugehörige Ergebnisse gelöscht", 3000)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Fehler beim Löschen", f"Beim Löschen ist ein Fehler aufgetreten:\n{e}")
 
     # -------------------- Drucken --------------------
 
     def print_member_list(self):
         print_member_list(self)
+
+    def print_member_stats_by_id(self, mid):
+        print_member_statistics(mid)
 
     def load_all(self):
         self.load_trainings()
