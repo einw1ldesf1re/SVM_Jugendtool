@@ -186,11 +186,14 @@ def print_training_results(training_id, parent=None, format="A4"):
     styles = getSampleStyleSheet()
 
     # 🧾 Schriftarten mit Skalierung
-    
-    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=16*font_scale, alignment=1, spaceAfter=5,leading=18)
-    sub_title_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12*font_scale,  alignment=1, spaceBefore=0, spaceAfter=0, leading=14)
-    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12 * font_scale)
-    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName='Helvetica', fontSize=10 * font_scale)
+    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='Helvetica-Bold',
+                                 fontSize=16*font_scale, alignment=1, spaceAfter=5, leading=18)
+    sub_title_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold',
+                                     fontSize=12*font_scale, alignment=1, spaceBefore=0, spaceAfter=0, leading=14)
+    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold',
+                                  fontSize=12 * font_scale)
+    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName='Helvetica',
+                                  fontSize=10 * font_scale)
 
     usable_width = page_width - doc.leftMargin - doc.rightMargin
 
@@ -201,18 +204,47 @@ def print_training_results(training_id, parent=None, format="A4"):
     elements.append(Paragraph(sub_title, sub_title_style))
     elements.append(Spacer(1, 10 * font_scale))
 
-    # 👥 Teilnehmerliste
     participants = query_db("""
-        SELECT DISTINCT m.vorname, m.nachname
+        SELECT DISTINCT m.vorname, m.nachname, m.rolle
         FROM ergebnisse e
         LEFT JOIN mitglieder m ON e.mitglied_id=m.mitglieder_id
         WHERE e.training_id=?
-        ORDER BY m.nachname, m.vorname
     """, (training_id,))
 
+    # Teilnehmer nach Rolle trennen
+    members = [p for p in participants if p.get('rolle', '').lower() != 'gast']
+    guests = [p for p in participants if p.get('rolle', '').lower() == 'gast']
+
+    # Alphabetisch sortieren
+    members.sort(key=lambda x: (x['nachname'].lower(), x['vorname'].lower()))
+    guests.sort(key=lambda x: (x['nachname'].lower(), x['vorname'].lower()))
+
     participant_data = [["ID", "Vorname", "Nachname"]]
-    for idx, p in enumerate(participants, start=1):
-        participant_data.append([idx, p['vorname'], p['nachname']])
+
+    # Helferfunktion zum Hinzufügen in die Tabelle
+    def add_participant_row(idx, p, is_guest):
+        vorname = p['vorname']
+        nachname = p['nachname']
+        if is_guest:
+            vorname += " (Gast)"
+            vorname_para = Paragraph(f"<font color='grey'><i>{vorname}</i></font>",
+                                    ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+            nachname_para = Paragraph(f"<font color='grey'><i>{nachname}</i></font>",
+                                    ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+        else:
+            vorname_para = Paragraph(vorname,
+                                    ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+            nachname_para = Paragraph(nachname,
+                                    ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+        participant_data.append([idx, vorname_para, nachname_para])
+
+    # Mitglieder zuerst
+    for idx, p in enumerate(members, start=1):
+        add_participant_row(idx, p, is_guest=False)
+
+    # Gäste danach
+    for idx, p in enumerate(guests, start=len(members)+1):
+        add_participant_row(idx, p, is_guest=True)
 
     id_width = 25 * font_scale
     remaining_width = usable_width - id_width
@@ -225,7 +257,6 @@ def print_training_results(training_id, parent=None, format="A4"):
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 9 * font_scale),
     ]))
     elements.append(Paragraph("Teilnehmerliste:", header_style))
@@ -250,7 +281,7 @@ def print_training_results(training_id, parent=None, format="A4"):
         elements.append(Paragraph(header_text, header_style))
 
         results = query_db("""
-            SELECT m.vorname, m.nachname, e.gesamtpunktzahl
+            SELECT m.vorname, m.nachname, m.rolle, e.gesamtpunktzahl
             FROM ergebnisse e
             LEFT JOIN mitglieder m ON e.mitglied_id=m.mitglieder_id
             LEFT JOIN kategorien k ON e.kategorie_id=k.kategorie_id
@@ -262,7 +293,19 @@ def print_training_results(training_id, parent=None, format="A4"):
 
         table_data = [["Rang", "Vorname", "Nachname", "Ergebnis"]]
         for idx, r in enumerate(results, start=1):
-            table_data.append([idx, r['vorname'], r['nachname'], r['gesamtpunktzahl']])
+            vorname = r['vorname']
+            nachname = r['nachname']
+
+            # Gast prüfen
+            is_guest = r.get('rolle', '').lower() == 'gast'
+            if is_guest:
+                vorname_para = Paragraph(f"<font color='grey'><i>{vorname}</i></font>", ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+                nachname_para = Paragraph(f"<font color='grey'><i>{nachname}</i></font>", ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+            else:
+                vorname_para = Paragraph(vorname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+                nachname_para = Paragraph(nachname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+
+            table_data.append([idx, vorname_para, nachname_para, r['gesamtpunktzahl']])
 
         rank_width = 25 * font_scale
         points_width = 45 * font_scale
@@ -316,6 +359,7 @@ def print_training_results(training_id, parent=None, format="A4"):
             os.system(f"xdg-open '{tmp_filename}'")
     except Exception as e:
         QMessageBox.critical(parent, "Fehler", f"PDF konnte nicht geöffnet werden: {str(e)}")
+
 
 def print_member_statistics(mid, parent=None, format="A4"):
  # === Seiten & Schriftgrößen ===

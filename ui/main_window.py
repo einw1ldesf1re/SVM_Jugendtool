@@ -34,6 +34,16 @@ class MainWindow(QMainWindow):
         t_layout = QVBoxLayout(self.trainings_tab)
         btn_row = QHBoxLayout()
         self.add_training_btn = QPushButton('Neues Training')
+        self.add_training_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.add_training_btn.setStyleSheet("""
+                    QPushButton {
+                        padding: 3px 6px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
         btn_row.addWidget(self.add_training_btn)
         btn_row.addStretch()
         t_layout.addLayout(btn_row)
@@ -51,7 +61,27 @@ class MainWindow(QMainWindow):
         m_layout = QVBoxLayout(self.members_tab)
         m_btn_row = QHBoxLayout()
         self.add_member_btn = QPushButton('Neues Mitglied')
+        self.add_member_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.add_member_btn.setStyleSheet("""
+                    QPushButton {
+                        padding: 3px 6px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
         self.export_youth_btn = QPushButton("Drucken")
+        self.export_youth_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.export_youth_btn.setStyleSheet("""
+                    QPushButton {
+                        padding: 3px 6px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
         m_btn_row.addWidget(self.add_member_btn)
         m_btn_row.addWidget(self.export_youth_btn)
         self.export_youth_btn.clicked.connect(self.print_member_list)
@@ -65,7 +95,6 @@ class MainWindow(QMainWindow):
         m_layout.addWidget(self.member_table)
         self.add_member_btn.clicked.connect(self.add_member)
         self.tabs.addTab(self.members_tab, 'Mitglieder')
-
         self.status = self.statusBar()
 
     # -------------------- Trainings --------------------
