@@ -70,13 +70,13 @@ class MainWindow(QMainWindow):
 
     # -------------------- Trainings --------------------
     def load_trainings(self):
-        # Haupt-Container leeren
+        # --- Haupt-Container leeren ---
         for i in reversed(range(self.trainings_tab.layout().count())):
             widget = self.trainings_tab.layout().itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
 
-        # ScrollArea
+        # --- ScrollArea ---
         scroll_area = QScrollArea()
         scroll_area.setStyleSheet("""
             QScrollArea {
@@ -92,10 +92,9 @@ class MainWindow(QMainWindow):
         scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         scroll_area.setWidget(scroll_widget)
         scroll_area.setWidgetResizable(True)
-
         self.trainings_tab.layout().addWidget(scroll_area)
 
-        # Trainings abrufen
+        # --- Trainings laden ---
         trainings = query_db('SELECT * FROM training ORDER BY startzeit DESC')
 
         for t in trainings:
@@ -104,9 +103,9 @@ class MainWindow(QMainWindow):
             end_dt = QDateTime.fromString(t['endzeit'], 'yyyy-MM-dd HH:mm:ss') if t['endzeit'] else None
             title_text = f"Training am {start_dt.toString('dd.MM.yyyy / HH:mm')} – {end_dt.toString('HH:mm') if end_dt else '?'} Uhr"
 
-            # Ergebnisse abrufen
+            # --- Ergebnisse abrufen ---
             results = query_db('''
-                SELECT e.ergebnis_id, m.vorname, m.nachname,
+                SELECT e.ergebnis_id, m.vorname, m.nachname, m.rolle,
                     k.name AS kategorie, a.name AS anschlag,
                     e.schussanzahl, e.gesamtpunktzahl
                 FROM ergebnisse e
@@ -117,25 +116,24 @@ class MainWindow(QMainWindow):
                 ORDER BY k.name, a.name, e.schussanzahl, e.gesamtpunktzahl DESC
             ''', (tid,))
 
-            # Collapsible Container
+            # --- Container ---
             container = QWidget()
             container_layout = QVBoxLayout(container)
             container_layout.setContentsMargins(8, 8, 8, 8)
             container.setStyleSheet("""
                 QWidget {
                     background-color: palette(mid);
-                    border: none;
                     border-radius: 8px;
                 }
             """)
 
-            # Header-Widget (Titel + Buttons)
+            # === Header ===
             header_widget = QWidget()
             header_layout = QHBoxLayout(header_widget)
             header_layout.setContentsMargins(4, 4, 4, 4)
             header_widget.setStyleSheet("background-color: palette(mid); border-radius: 6px;")
 
-            # --- Linker Bereich: Titel ---
+            # Titel
             title_label = QLabel(title_text)
             title_label.setStyleSheet("""
                 QLabel {
@@ -152,81 +150,39 @@ class MainWindow(QMainWindow):
             header_layout.addWidget(title_label)
             header_layout.addStretch()
 
-            # --- Rechter Bereich: Buttons ---
-            btn_add = QPushButton()
-            btn_add.setIcon(QIcon("assets/icons/plus.png"))
-            btn_add.setToolTip("Ergebnis hinzufügen")
-            btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_add.setStyleSheet("""
-                QPushButton {
-                    border: none;
-                    padding-top: 2px;
-                    padding-bottom: 2px;
-                }
-                QPushButton:hover {
-                    background-color: palette(light);
-                    border-radius: 4px;
-                }
-            """)
+            # Buttons
+            def make_btn(icon, tooltip, slot):
+                btn = QPushButton()
+                btn.setIcon(QIcon(icon))
+                btn.setToolTip(tooltip)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setFixedSize(24, 24)
+                btn.setStyleSheet("""
+                    QPushButton {
+                        border: none;
+                        padding-top: 2px;
+                        padding-bottom: 2px;
+                    }
+                    QPushButton:hover {
+                        background-color: palette(light);
+                        border-radius: 4px;
+                    }
+                """)
+                btn.clicked.connect(slot)
+                return btn
+
+            btn_add = make_btn("assets/icons/plus.png", "Ergebnis hinzufügen", lambda checked, tid=tid: self.add_results_by_id(tid))
+            btn_edit = make_btn("assets/icons/edit.png", "Training bearbeiten", lambda checked, tid=tid: self.edit_training_by_id(tid))
+            btn_delete = make_btn("assets/icons/trash.png", "Training löschen", lambda checked, tid=tid: self.delete_training_by_id(tid))
             header_layout.addWidget(btn_add)
-            btn_add.clicked.connect(lambda checked, tid=tid: self.add_results_by_id(tid))
-
-            btn_edit = QPushButton()
-            btn_edit.setIcon(QIcon("assets/icons/edit.png"))
-            btn_edit.setToolTip("Training bearbeiten")
-            btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_edit.setStyleSheet("""
-                QPushButton {
-                    border: none;
-                    padding-top: 2px;
-                    padding-bottom: 2px;
-                }
-                QPushButton:hover {
-                    background-color: palette(light);
-                    border-radius: 4px;
-                }
-            """)
             header_layout.addWidget(btn_edit)
-            btn_edit.clicked.connect(lambda checked, tid=tid: self.edit_training_by_id(tid))
-
-            btn_delete = QPushButton()
-            btn_delete.setIcon(QIcon("assets/icons/trash.png"))
-            btn_delete.setToolTip("Training löschen")
-            btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_delete.setStyleSheet("""
-                QPushButton {
-                    border: none;
-                    padding-top: 2px;
-                    padding-bottom: 2px;
-                }
-                QPushButton:hover {
-                    background-color: palette(light);
-                    border-radius: 4px;
-                }
-            """)
             header_layout.addWidget(btn_delete)
-            btn_delete.clicked.connect(lambda checked, tid=tid: self.delete_training_by_id(tid))
 
-            btn_print = QPushButton()
-            btn_print.setIcon(QIcon("assets/icons/printer.png"))
-            btn_print.setToolTip("Training drucken")
-            btn_print.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_print.setStyleSheet("""
-                QPushButton {
-                    border: none;
-                    padding-top: 2px;
-                    padding-bottom: 2px;
-                }
-                QPushButton:hover {
-                    background-color: palette(light);
-                    border-radius: 4px;
-                }
-            """)
             if results:
+                btn_print = make_btn("assets/icons/printer.png", "Training drucken", lambda checked, tid=tid: self.print_training_by_id(tid))
                 header_layout.addWidget(btn_print)
-                btn_print.clicked.connect(lambda checked, tid=tid: self.print_training_by_id(tid))
 
-            # Inhalt (eingeklappt)
+            # === Inhalt (eingeklappt) ===
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
             content_layout.setContentsMargins(4, 4, 4, 4)
@@ -240,26 +196,42 @@ class MainWindow(QMainWindow):
 
                 for (kategorie, schussanzahl, anschlag), group in gruppen.items():
                     subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
-                    subheader.setStyleSheet("font-weight: bold; margin: 0; margin-top: 10px; margin-bottom: 2px; padding: 2px 0;")
+                    subheader.setStyleSheet("""
+                        font-weight: bold;
+                        margin: 0;
+                        margin-top: 10px;
+                        margin-bottom: 2px;
+                        padding: 2px 0;
+                    """)
                     content_layout.addWidget(subheader)
 
                     table = QTableWidget()
                     table.setColumnCount(4)
                     table.setHorizontalHeaderLabels(["Vorname", "Nachname", "Ergebnis", ""])
-                    table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-                    table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-                    table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-                    table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
 
                     header = table.horizontalHeader()
+                    header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Vorname
+                    header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nachname
+                    header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Ergebnis
+                    header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)  # Buttons fixieren
+                    table.setColumnWidth(3, 48)  # feste Breite für Buttons-Spalte
+
+                    table.setStyleSheet("""
+                        QTableView::item {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                        }
+                    """)
+
                     header.setStyleSheet("""
                         QHeaderView::section {
                             background-color: palette(dark);
                             font-weight: bold;
-                            font-size: 14px;
-                            padding: 2px 0px;
+                            font-size: 13px;
+                            padding: 2px 0;
                         }
                     """)
+
                     table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
                     table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
                     table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -268,80 +240,59 @@ class MainWindow(QMainWindow):
 
                     table.setRowCount(len(group))
                     for i, r in enumerate(group):
-                        table.setItem(i, 0, QTableWidgetItem(r['vorname']))
-                        table.setItem(i, 1, QTableWidgetItem(r['nachname']))
+                        item_vor = QTableWidgetItem(r['vorname'])
+                        item_nach = QTableWidgetItem(r['nachname'])
+
+                        # Gäste leicht grau + kursiv anzeigen
+                        if r['rolle'] and r['rolle'].lower() == 'gast':
+                            guest_brush = QBrush(QColor("#888888"))
+                            for item in (item_vor, item_nach):
+                                item.setForeground(guest_brush)
+                                f = item.font()
+                                f.setItalic(True)
+                                item.setFont(f)
+
+                        table.setItem(i, 0, item_vor)
+                        table.setItem(i, 1, item_nach)
                         table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
 
+                        # --- Button-Cell ---
                         btn_widget = QWidget()
                         btn_layout = QHBoxLayout(btn_widget)
                         btn_layout.setContentsMargins(0, 0, 0, 0)
                         btn_layout.setSpacing(2)
 
-                        btn_edit = QPushButton()
-                        btn_edit.setIcon(QIcon("assets/icons/edit.png"))
-                        btn_edit.setToolTip("Ergebnis bearbeiten")
-                        btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
-                        btn_edit.setFixedSize(24, 24)
-                        btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
-                        btn_edit.setStyleSheet("""
-                            QPushButton {
-                                border: none;
-                                padding-top: 2px;
-                                padding-bottom: 2px;
-                            }
-                            QPushButton:hover {
-                                background-color: palette(light);
-                                border-radius: 4px;
-                            }
-                        """)
-                        btn_edit.clicked.connect(lambda checked, eid=r['ergebnis_id']: self.edit_result_by_id(eid))
+                        btn_edit = make_btn("assets/icons/edit.png", "Ergebnis bearbeiten",
+                                            lambda checked, eid=r['ergebnis_id']: self.edit_result_by_id(eid))
+                        btn_delete = make_btn("assets/icons/trash.png", "Ergebnis löschen",
+                                            lambda checked, eid=r['ergebnis_id']: self.delete_result_by_id(eid))
                         btn_layout.addWidget(btn_edit)
-
-                        btn_delete = QPushButton()
-                        btn_delete.setIcon(QIcon("assets/icons/trash.png"))
-                        btn_delete.setToolTip("Ergebnis löschen")
-                        btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
-                        btn_delete.setFixedSize(24, 24)
-                        btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
-                        btn_delete.setStyleSheet("""
-                            QPushButton {
-                                border: none;
-                                padding-top: 2px;
-                                padding-bottom: 2px;
-                            }
-                            QPushButton:hover {
-                                background-color: palette(light);
-                                border-radius: 4px;
-                            }
-                        """)
-                        btn_delete.clicked.connect(lambda checked, eid=r['ergebnis_id']: self.delete_result_by_id(eid))
                         btn_layout.addWidget(btn_delete)
-
                         btn_layout.addStretch()
+
                         table.setCellWidget(i, 3, btn_widget)
 
-                    # Automatische Höhe der Tabelle
+                    # Höhe der Tabelle anpassen
                     table_height = table.horizontalHeader().height()
                     for row in range(table.rowCount()):
                         table_height += table.rowHeight(row)
                     table.setFixedHeight(table_height)
+                    table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-                    table.setSizePolicy(
-                        QSizePolicy.Policy.Expanding,
-                        QSizePolicy.Policy.Fixed  # wichtig: Höhe fix, passt sich Inhalt an
-                    )
+                    # --- Nachträgliche Breitenkorrektur ---
+                    extra_padding = 12
+                    for col in (2, 3):  # Ergebnis & Button-Spalte
+                        table.resizeColumnToContents(col)
+                        w = header.sectionSize(col)
+                        header.resizeSection(col, w + extra_padding)
 
                     content_layout.addWidget(table)
-
             else:
                 lbl_empty = QLabel("Noch keine Ergebnisse vorhanden")
                 lbl_empty.setContentsMargins(0, 0, 0, 0)
                 content_layout.addWidget(lbl_empty)
 
-            content_widget.setSizePolicy(
-                QSizePolicy.Policy.Expanding,
-                QSizePolicy.Policy.Fixed  # Container passt sich dem Inhalt an
-            )
+            content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             content_widget.adjustSize()
             content_widget.setVisible(False)
 
@@ -350,7 +301,6 @@ class MainWindow(QMainWindow):
 
             title_label.mousePressEvent = lambda event, w=content_widget: toggle_content(w)
 
-            # Aufbau Container
             container_layout.addWidget(header_widget)
             container_layout.addWidget(content_widget)
             scroll_layout.addWidget(container)
@@ -389,6 +339,26 @@ class MainWindow(QMainWindow):
                 data['anschlag_id'], data['schussanzahl'], data['gesamtpunktzahl']
             ))
 
+            gast_check = query_db('''
+                SELECT vorname, nachname, rolle FROM mitglieder WHERE mitglieder_id=?
+            ''', (data['mitglied_id'],), single=True)
+
+            if gast_check and gast_check.get('rolle', '').lower() == 'gast':
+                # Anzahl der bisherigen Ergebnisse für diesen Gast zählen
+                result_count = query_db('''
+                    SELECT COUNT(*) AS count FROM ergebnisse
+                    WHERE mitglied_id=?
+                ''', (data['mitglied_id'],), single=True)['count']
+
+                if result_count >= 3:
+                    vorname = gast_check['vorname']
+                    nachname = gast_check['nachname']
+                    QMessageBox.information(
+                        self,
+                        "Gast-Ergebnisse",
+                        f"{vorname} {nachname} ist noch nicht im Verein und hat bereits {result_count} Ergebnisse eingetragen!"
+                    )
+                    
             self.load_trainings()
             self.status.showMessage("Ergebnis hinzugefügt", 3000)
 
@@ -563,15 +533,26 @@ class MainWindow(QMainWindow):
     def load_members(self):
         rows = query_db('SELECT * FROM mitglieder ORDER BY nachname')
         self.member_table.setRowCount(0)
-        self.member_table.setColumnCount(5)
+        self.member_table.setColumnCount(6)
 
         # --- Tabellenkopf ---
-        self.member_table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Geburtsdatum', ''])
-        self.member_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.member_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.member_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.member_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.member_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.member_table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Geburtsdatum', 'Status', ''])
+        header = self.member_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+        self.member_table.setColumnWidth(5, 72)
+
+        # Padding per Stylesheet (gilt für alle Zellen)
+        self.member_table.setStyleSheet("""
+            QTableView::item {
+                padding-left: 6px;
+                padding-right: 6px;
+            }
+        """)
 
         self.member_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.member_table.verticalHeader().setVisible(False)
@@ -581,10 +562,23 @@ class MainWindow(QMainWindow):
             row_pos = self.member_table.rowCount()
             self.member_table.insertRow(row_pos)
 
+            # --- Prüfen, ob Gast ---
+            is_guest = r.get('rolle', '').lower() == 'gast'
+
             # --- Spalten befüllen ---
-            self.member_table.setItem(row_pos, 0, QTableWidgetItem(str(r['mitglieder_id'])))
-            self.member_table.setItem(row_pos, 1, QTableWidgetItem(r['vorname']))
-            self.member_table.setItem(row_pos, 2, QTableWidgetItem(r['nachname']))
+            id_item = QTableWidgetItem(str(r['mitglieder_id']))
+            vor_item = QTableWidgetItem(r['vorname'])
+            nach_item = QTableWidgetItem(r['nachname'])
+
+            for item in (id_item, vor_item, nach_item):
+                if is_guest:
+                    font = item.font()
+                    font.setItalic(True)
+                    item.setFont(font)
+                    item.setForeground(QBrush(QColor("#888888")))  # hellgrau
+            self.member_table.setItem(row_pos, 0, id_item)
+            self.member_table.setItem(row_pos, 1, vor_item)
+            self.member_table.setItem(row_pos, 2, nach_item)
 
             # --- Geburtstag + Alter ---
             birthday = QDate.fromString(r['geburtsdatum'], 'yyyy-MM-dd')
@@ -593,17 +587,32 @@ class MainWindow(QMainWindow):
                 age = today.year() - birthday.year()
                 if (today.month(), today.day()) < (birthday.month(), birthday.day()):
                     age -= 1
-
                 display_text = birthday.toString('dd.MM.yyyy')
-                item = QTableWidgetItem(display_text)
+                bday_item = QTableWidgetItem(display_text)
                 if age >= 18:
-                    item.setText(f"⚠ {display_text}")
-                    item.setForeground(QBrush(QColor("red")))
+                    bday_item.setText(f"⚠ {display_text}")
+                    bday_item.setForeground(QBrush(QColor("red")))
             else:
-                item = QTableWidgetItem("–")
-            self.member_table.setItem(row_pos, 3, item)
+                bday_item = QTableWidgetItem("–")
 
-            # --- Button ---
+            if is_guest:
+                font = bday_item.font()
+                font.setItalic(True)
+                bday_item.setFont(font)
+                bday_item.setForeground(QBrush(QColor("#888888")))
+            self.member_table.setItem(row_pos, 3, bday_item)
+
+            # --- Rolle / Status ---
+            role_text = r.get('rolle', 'Mitglied')
+            role_item = QTableWidgetItem(role_text)
+            if is_guest:
+                font = role_item.font()
+                font.setItalic(True)
+                role_item.setFont(font)
+                role_item.setForeground(QBrush(QColor("#888888")))
+            self.member_table.setItem(row_pos, 4, role_item)
+
+            # --- Buttons ---
             btn_widget = QWidget()
             btn_layout = QHBoxLayout(btn_widget)
             btn_layout.setContentsMargins(0, 0, 0, 0)
@@ -649,7 +658,7 @@ class MainWindow(QMainWindow):
 
             btn_delete = QPushButton()
             btn_delete.setIcon(QIcon("assets/icons/trash.png"))
-            btn_delete.setToolTip("Mitglied bearbeiten")
+            btn_delete.setToolTip("Mitglied löschen")
             btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_delete.setFixedSize(24, 24)
             btn_delete.setStyleSheet("""
@@ -667,8 +676,15 @@ class MainWindow(QMainWindow):
             btn_layout.addWidget(btn_delete, alignment=Qt.AlignmentFlag.AlignCenter)
 
             btn_widget.setLayout(btn_layout)
-            self.member_table.setCellWidget(row_pos, 4, btn_widget)
+            self.member_table.setCellWidget(row_pos, 5, btn_widget)
             self.member_table.setRowHeight(row_pos, 28)
+
+        # --- Nach dem Befüllen: resizeToContents + padding-Kompensation ---
+        extra_padding = 12  # passt zu deinem stylesheet padding-left+right
+        for col in (0, 4, 5):
+            self.member_table.resizeColumnToContents(col)
+            w = header.sectionSize(col)
+            header.resizeSection(col, w + extra_padding)
 
         self.status.showMessage(f"{len(rows)} Mitglieder geladen", 3000)
 
@@ -678,8 +694,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() == dlg.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum) VALUES (?, ?, ?)',
-                (data['vorname'], data['nachname'], data['geburtsdatum'])
+                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum, rolle) VALUES (?, ?, ?, ?)',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'])
             )
             self.load_members()
             self.status.showMessage("Mitglied hinzugefügt", 3000)
@@ -696,12 +712,11 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=? WHERE mitglieder_id=?',
-                (data['vorname'], data['nachname'], data['geburtsdatum'], mid)
+                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=?, rolle=? WHERE mitglieder_id=?',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'], mid)
             )
             self.load_members()
             self.status.showMessage("Mitglied aktualisiert", 3000)
-
 
     def delete_member_by_id(self, mid):
         """Löscht ein Mitglied und alle zugehörigen Ergebnisse nach Bestätigung."""
@@ -725,6 +740,7 @@ class MainWindow(QMainWindow):
             query_db("DELETE FROM mitglieder WHERE mitglieder_id=?", (mid,))
 
             # --- UI aktualisieren ---
+            self.load_trainings()
             self.load_members()
             self.status.showMessage("Mitglied und zugehörige Ergebnisse gelöscht", 3000)
 

@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QHBoxLayout, QLineEdit, QDateEdit, QPushButton, QMessageBox
+    QDialog, QFormLayout, QHBoxLayout, QLineEdit, QDateEdit, QComboBox,
+    QPushButton, QMessageBox
 )
 from PyQt6.QtCore import QDate, Qt
 from db import query_db
@@ -11,8 +12,6 @@ class InlineSuggestLineEdit(QLineEdit):
         super().__init__(parent)
         self.items = sorted(items) if items else []
         self.suggestion = ""
-
-        # Bei jedem Tippen oder Löschen den Vorschlag updaten
         self.textEdited.connect(self.update_suggestion)
 
     def keyPressEvent(self, event):
@@ -43,8 +42,7 @@ class InlineSuggestLineEdit(QLineEdit):
         new_text = text_left + suggestion
         self.blockSignals(True)
         self.setText(new_text)
-        # Cursor bleibt dort, wo der Benutzer zuletzt getippt hat
-        self.setCursorPosition(cursor_pos)
+        self.setCursorPosition(cursor_pos)  # Cursor bleibt an Position
         self.blockSignals(False)
 
         self.suggestion = suggestion
@@ -85,6 +83,11 @@ class MemberDialog(QDialog):
         self.birth_edit.setDate(QDate.currentDate())
         layout.addRow('Geburtsdatum:', self.birth_edit)
 
+        # === Mitgliedsstatus (Mitglied / Gast) ===
+        self.status_box = QComboBox()
+        self.status_box.addItems(["Mitglied", "Gast"])
+        layout.addRow('Status:', self.status_box)
+
         # === Buttons ===
         btn_layout = QHBoxLayout()
         self.save_btn = QPushButton('Speichern')
@@ -110,6 +113,13 @@ class MemberDialog(QDialog):
         self.last_edit.setText(data['nachname'])
         self.birth_edit.setDate(QDate.fromString(data['geburtsdatum'], 'yyyy-MM-dd'))
 
+        # Mitgliedsstatus laden
+        status = data.get('rolle', 'mitglied')
+        if status == "gast":
+            self.status_box.setCurrentText("Gast")
+        else:
+            self.status_box.setCurrentText("Mitglied")
+
     def validate_and_accept(self):
         vorname = self.first_edit.text().strip()
         nachname = self.last_edit.text().strip()
@@ -131,8 +141,12 @@ class MemberDialog(QDialog):
         self.accept()
 
     def get_data(self):
+        status_text = self.status_box.currentText()
+        mitglied_status = "gast" if status_text == "Gast" else "mitglied"
+
         return {
             'vorname': self.first_edit.text().strip(),
             'nachname': self.last_edit.text().strip(),
-            'geburtsdatum': self.birth_edit.date().toString('yyyy-MM-dd')
+            'geburtsdatum': self.birth_edit.date().toString('yyyy-MM-dd'),
+            'rolle': mitglied_status
         }

@@ -71,10 +71,17 @@ def print_member_list(parent=None, format="A4"):
         return alter
 
     # 👥 Mitglieder aus DB laden
-    members = query_db("SELECT vorname, nachname, geburtsdatum FROM mitglieder ORDER BY nachname")
+    members = query_db("SELECT vorname, nachname, geburtsdatum, rolle FROM mitglieder ORDER BY nachname")
     member_data = [["ID", "Vorname", "Nachname", "Geburtsdatum", "Alter"]]
+
+    counter = 1;
+
     for idx, m in enumerate(members, start=1):
         geburtsdatum = m['geburtsdatum']
+
+        if(m['rolle'] == "gast"):
+            continue
+
         # 🗓️ In dd.MM.yyyy umwandeln, falls Datumstyp oder ISO-String
         if isinstance(geburtsdatum, (datetime,)):
             geburtsdatum_str = geburtsdatum.strftime("%d.%m.%Y")
@@ -88,8 +95,10 @@ def print_member_list(parent=None, format="A4"):
 
         alter_int = berechne_alter(geburtsdatum)
 
+
         if(alter_int < 18):
-            member_data.append([str(idx), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            counter+=1
 
     col_widths = [
         usable_width * 0.08,  # ID schmal
