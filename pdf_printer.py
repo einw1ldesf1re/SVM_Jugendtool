@@ -1,14 +1,19 @@
 from reportlab.lib.pagesizes import A4, A5
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Flowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from PyQt6.QtWidgets import QMessageBox
-from PyQt6.QtCore import QDateTime
+from PyQt6.QtCore import QDateTime, QDate
 from io import BytesIO
 import os
 import sys
+from io import BytesIO
+import matplotlib.pyplot as plt
 import tempfile
 from datetime import datetime, date
+from matplotlib.ticker import MaxNLocator
+from itertools import groupby
+from operator import itemgetter
 from db import query_db
 
 def print_member_list(parent=None, format="A4"):
@@ -66,10 +71,17 @@ def print_member_list(parent=None, format="A4"):
         return alter
 
     # 👥 Mitglieder aus DB laden
-    members = query_db("SELECT vorname, nachname, geburtsdatum FROM mitglieder ORDER BY nachname")
+    members = query_db("SELECT vorname, nachname, geburtsdatum, rolle FROM mitglieder ORDER BY nachname")
     member_data = [["ID", "Vorname", "Nachname", "Geburtsdatum", "Alter"]]
+
+    counter = 1;
+
     for idx, m in enumerate(members, start=1):
         geburtsdatum = m['geburtsdatum']
+
+        if(m['rolle'] == "gast"):
+            continue
+
         # 🗓️ In dd.MM.yyyy umwandeln, falls Datumstyp oder ISO-String
         if isinstance(geburtsdatum, (datetime,)):
             geburtsdatum_str = geburtsdatum.strftime("%d.%m.%Y")
@@ -83,8 +95,10 @@ def print_member_list(parent=None, format="A4"):
 
         alter_int = berechne_alter(geburtsdatum)
 
+
         if(alter_int < 18):
-            member_data.append([str(idx), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            counter+=1
 
     col_widths = [
         usable_width * 0.08,  # ID schmal
@@ -172,11 +186,14 @@ def print_training_results(training_id, parent=None, format="A4"):
     styles = getSampleStyleSheet()
 
     # 🧾 Schriftarten mit Skalierung
-    
-    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=16*font_scale, alignment=1, spaceAfter=5,leading=18)
-    sub_title_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12*font_scale,  alignment=1, spaceBefore=0, spaceAfter=0, leading=14)
-    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12 * font_scale)
-    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName='Helvetica', fontSize=10 * font_scale)
+    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='Helvetica-Bold',
+                                 fontSize=16*font_scale, alignment=1, spaceAfter=5, leading=18)
+    sub_title_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold',
+                                     fontSize=12*font_scale, alignment=1, spaceBefore=0, spaceAfter=0, leading=14)
+    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold',
+                                  fontSize=12 * font_scale)
+    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName='Helvetica',
+                                  fontSize=10 * font_scale)
 
     usable_width = page_width - doc.leftMargin - doc.rightMargin
 
@@ -187,18 +204,47 @@ def print_training_results(training_id, parent=None, format="A4"):
     elements.append(Paragraph(sub_title, sub_title_style))
     elements.append(Spacer(1, 10 * font_scale))
 
-    # 👥 Teilnehmerliste
     participants = query_db("""
-        SELECT DISTINCT m.vorname, m.nachname
+        SELECT DISTINCT m.vorname, m.nachname, m.rolle
         FROM ergebnisse e
         LEFT JOIN mitglieder m ON e.mitglied_id=m.mitglieder_id
         WHERE e.training_id=?
-        ORDER BY m.nachname, m.vorname
     """, (training_id,))
 
+    # Teilnehmer nach Rolle trennen
+    members = [p for p in participants if p.get('rolle', '').lower() != 'gast']
+    guests = [p for p in participants if p.get('rolle', '').lower() == 'gast']
+
+    # Alphabetisch sortieren
+    members.sort(key=lambda x: (x['nachname'].lower(), x['vorname'].lower()))
+    guests.sort(key=lambda x: (x['nachname'].lower(), x['vorname'].lower()))
+
     participant_data = [["ID", "Vorname", "Nachname"]]
-    for idx, p in enumerate(participants, start=1):
-        participant_data.append([idx, p['vorname'], p['nachname']])
+
+    # Helferfunktion zum Hinzufügen in die Tabelle
+    def add_participant_row(idx, p, is_guest):
+        vorname = p['vorname']
+        nachname = p['nachname']
+        if is_guest:
+            vorname += " (Gast)"
+            vorname_para = Paragraph(f"<font color='grey'><i>{vorname}</i></font>",
+                                    ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+            nachname_para = Paragraph(f"<font color='grey'><i>{nachname}</i></font>",
+                                    ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+        else:
+            vorname_para = Paragraph(vorname,
+                                    ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+            nachname_para = Paragraph(nachname,
+                                    ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+        participant_data.append([idx, vorname_para, nachname_para])
+
+    # Mitglieder zuerst
+    for idx, p in enumerate(members, start=1):
+        add_participant_row(idx, p, is_guest=False)
+
+    # Gäste danach
+    for idx, p in enumerate(guests, start=len(members)+1):
+        add_participant_row(idx, p, is_guest=True)
 
     id_width = 25 * font_scale
     remaining_width = usable_width - id_width
@@ -211,7 +257,6 @@ def print_training_results(training_id, parent=None, format="A4"):
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.black),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
         ('FONTSIZE', (0,0), (-1,-1), 9 * font_scale),
     ]))
     elements.append(Paragraph("Teilnehmerliste:", header_style))
@@ -236,7 +281,7 @@ def print_training_results(training_id, parent=None, format="A4"):
         elements.append(Paragraph(header_text, header_style))
 
         results = query_db("""
-            SELECT m.vorname, m.nachname, e.gesamtpunktzahl
+            SELECT m.vorname, m.nachname, m.rolle, e.gesamtpunktzahl
             FROM ergebnisse e
             LEFT JOIN mitglieder m ON e.mitglied_id=m.mitglieder_id
             LEFT JOIN kategorien k ON e.kategorie_id=k.kategorie_id
@@ -248,7 +293,19 @@ def print_training_results(training_id, parent=None, format="A4"):
 
         table_data = [["Rang", "Vorname", "Nachname", "Ergebnis"]]
         for idx, r in enumerate(results, start=1):
-            table_data.append([idx, r['vorname'], r['nachname'], r['gesamtpunktzahl']])
+            vorname = r['vorname']
+            nachname = r['nachname']
+
+            # Gast prüfen
+            is_guest = r.get('rolle', '').lower() == 'gast'
+            if is_guest:
+                vorname_para = Paragraph(f"<font color='grey'><i>{vorname}</i></font>", ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+                nachname_para = Paragraph(f"<font color='grey'><i>{nachname}</i></font>", ParagraphStyle('LeftGuest', parent=normal_style, alignment=0))
+            else:
+                vorname_para = Paragraph(vorname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+                nachname_para = Paragraph(nachname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
+
+            table_data.append([idx, vorname_para, nachname_para, r['gesamtpunktzahl']])
 
         rank_width = 25 * font_scale
         points_width = 45 * font_scale
@@ -302,3 +359,209 @@ def print_training_results(training_id, parent=None, format="A4"):
             os.system(f"xdg-open '{tmp_filename}'")
     except Exception as e:
         QMessageBox.critical(parent, "Fehler", f"PDF konnte nicht geöffnet werden: {str(e)}")
+
+
+def print_member_statistics(mid, parent=None, format="A4"):
+ # === Seiten & Schriftgrößen ===
+    page_size = A5 if format.upper() == "A5" else A4
+    page_width, page_height = page_size
+    font_scale = 0.8 if format.upper() == "A5" else 1.0
+
+    # === Mitgliedsdaten ===
+    member = query_db("SELECT * FROM mitglieder WHERE mitglieder_id=?", (mid,), single=True)
+    if not member:
+        QMessageBox.warning(parent, "Fehler", "Mitglied nicht gefunden.")
+        return
+
+    name = f"{member['vorname']} {member['nachname']}"
+    geburtsdatum = QDate.fromString(member['geburtsdatum'], "yyyy-MM-dd")
+    age = QDate.currentDate().year() - geburtsdatum.year()
+    if (QDate.currentDate().month(), QDate.currentDate().day()) < (geburtsdatum.month(), geburtsdatum.day()):
+        age -= 1
+
+    # === Ergebnisse laden ===
+    results = query_db("""
+        SELECT e.*, t.startzeit, k.name AS kategorie, a.name AS anschlag
+        FROM ergebnisse e
+        LEFT JOIN training t ON t.training_id = e.training_id
+        LEFT JOIN kategorien k ON k.kategorie_id = e.kategorie_id
+        LEFT JOIN anschlaege a ON a.anschlag_id = e.anschlag_id
+        WHERE e.mitglied_id=?
+        ORDER BY t.startzeit
+    """, (mid,))
+
+    if not results:
+        QMessageBox.information(parent, "Keine Daten", "Für dieses Mitglied existieren keine Ergebnisse.")
+        return
+
+    total_trainings = len(set(r['training_id'] for r in results))
+    stand_datum = QDateTime.currentDateTime().toString('dd.MM.yyyy HH:mm')
+
+    # === PDF Setup ===
+    pdf_buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=page_size,
+        rightMargin=25, leftMargin=25, topMargin=90, bottomMargin=40
+    )
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=16*font_scale, alignment=1, leading=18)
+    header_style = ParagraphStyle('Header', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=12*font_scale)
+    normal_style = ParagraphStyle('Normal', parent=styles['Normal'], fontName='Helvetica', fontSize=10*font_scale)
+
+    # === Funktion für Header und Footer auf jeder Seite ===
+    def add_page_info(canvas_obj, doc_obj):
+        # Logo oben rechts
+        logo_path = "assets/images/logo.png"
+        logo_width = 100 * font_scale
+        logo_height = 70 * font_scale
+        canvas_obj.drawImage(
+            logo_path,
+            page_width - logo_width - 10,
+            page_height - logo_height - 10,
+            width=logo_width,
+            height=logo_height,
+            mask='auto'
+        )
+
+        # Überschrift + Basisdaten
+        canvas_obj.setFont("Helvetica-Bold", 14*font_scale)
+        canvas_obj.drawString(25, page_height - 50, f"Leistungsübersicht: {name}")
+
+        canvas_obj.setFont("Helvetica", 10*font_scale)
+        canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
+        canvas_obj.drawString(25, page_height - 80, f"Trainings teilgenommen: {total_trainings}")
+
+        # Stand-Zeile
+        canvas_obj.setFont("Helvetica", 9*font_scale)
+        canvas_obj.drawString(25, page_height - 95, f"Stand: {stand_datum} Uhr")
+
+        # Seitenzahl unten
+        canvas_obj.setFont("Helvetica", 9*font_scale)
+        canvas_obj.drawRightString(page_width - 25, 25, f"Seite {doc_obj.page}")
+
+    elements.append(Spacer(1, 20))
+
+    # === Trainingsbeteiligung pro Disziplin (Tortendiagramm) ===
+    disc_counts = query_db("""
+        SELECT k.name AS kategorie, COUNT(DISTINCT e.training_id) AS trainings
+        FROM ergebnisse e
+        LEFT JOIN kategorien k ON k.kategorie_id=e.kategorie_id
+        WHERE e.mitglied_id=?
+        GROUP BY k.name
+    """, (mid,))
+
+    if disc_counts:
+        labels = [d['kategorie'] for d in disc_counts]
+        sizes = [d['trainings'] for d in disc_counts]
+        fig, ax = plt.subplots(figsize=(4,4))
+        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+        ax.set_title("Trainingsbeteiligung pro Disziplin")
+        plt.tight_layout()
+        chart_path = os.path.join(tempfile.gettempdir(), f"pie_{mid}.png")
+        plt.savefig(chart_path, dpi=150)
+        plt.close(fig)
+        elements.append(Image(chart_path, width=page_width/2, height=page_width/2))
+        elements.append(Spacer(1, 14))
+
+    # === Bestes Ergebnis pro Disziplin ===
+    elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
+    best_results = query_db("""
+        SELECT k.name AS kategorie, e.anschlag_id, e.schussanzahl, e.gesamtpunktzahl, t.startzeit, a.name AS anschlag
+        FROM ergebnisse e
+        LEFT JOIN kategorien k ON k.kategorie_id=e.kategorie_id
+        LEFT JOIN training t ON t.training_id=e.training_id
+        LEFT JOIN anschlaege a ON a.anschlag_id=e.anschlag_id
+        WHERE e.mitglied_id=?
+        AND e.gesamtpunktzahl = (
+            SELECT MAX(e2.gesamtpunktzahl)
+            FROM ergebnisse e2
+            WHERE e2.mitglied_id=? AND e2.kategorie_id=e.kategorie_id
+        )
+        ORDER BY k.name
+    """, (mid, mid))
+
+    table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
+    for r in best_results:
+        date_str = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yyyy')
+        table_data.append([r['kategorie'], r['anschlag'] or "-", r['schussanzahl'], r['gesamtpunktzahl'], date_str])
+
+    col_widths = [
+        (page_width - 50) * 0.25,
+        (page_width - 50) * 0.15,
+        (page_width - 50) * 0.20,
+        (page_width - 50) * 0.15,
+        (page_width - 50) * 0.25,
+    ]
+    t = Table(table_data, colWidths=col_widths, hAlign='CENTER')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ALIGN', (2,1), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 10*font_scale),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 14))
+
+    # === Verlaufdiagramme 2 nebeneinander ===
+    results_sorted = sorted(results, key=itemgetter('kategorie', 'anschlag', 'schussanzahl'))
+    line_charts = []
+    for (disc, anschlag, schussanzahl), group in groupby(results_sorted, key=itemgetter('kategorie', 'anschlag', 'schussanzahl')):
+        disc_results = list(group)
+        if len(disc_results) < 2:
+            continue
+
+        dates = [QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yy') for r in disc_results]
+        points = [r['gesamtpunktzahl'] for r in disc_results]
+
+        width_inch = min(max(len(dates) * 1.2, 5), 7)
+        height_inch = 2.7  # etwas niedriger als vorher (vorher 4.0)
+
+        fig, ax = plt.subplots(figsize=(width_inch, height_inch), dpi=150)
+        ax.plot(dates, points, marker='o', linestyle='-', color='blue')
+        title_str = f"{disc} ({anschlag or '-'} / {schussanzahl} Schüsse)"
+        ax.set_title(title_str, fontsize=10*font_scale)
+        ax.set_xlabel("Datum", fontsize=9*font_scale)
+        ax.set_ylabel("Punkte", fontsize=9*font_scale)
+        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=min(len(dates), 6)))
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=8*font_scale)
+        plt.tight_layout()
+
+        chart_path = os.path.join(tempfile.gettempdir(), f"line_{mid}_{disc}_{anschlag}_{schussanzahl}.png")
+        plt.savefig(chart_path, dpi=150)
+        plt.close(fig)
+
+        # Höhe anpassen – harmonisch mit A4
+        img = Image(chart_path, width=page_width/2 - 40, height=height_inch*80)
+        line_charts.append(img)
+
+
+    for i in range(0, len(line_charts), 2):
+        row = line_charts[i:i+2]
+        if len(row) == 1:
+            row.append(Spacer(1, height_inch*90))
+        elements.append(Table([row], colWidths=[page_width/2 - 30]*2, hAlign='CENTER'))
+        elements.append(Spacer(1, 12))
+
+    # === PDF bauen ===
+    doc.build(elements, onFirstPage=add_page_info, onLaterPages=add_page_info)
+
+    # === Datei speichern & öffnen ===
+    tmp_filename = os.path.join(tempfile.gettempdir(), f"mitglied_{member['nachname']}_{member['vorname']}.pdf")
+    with open(tmp_filename, "wb") as f:
+        f.write(pdf_buffer.getvalue())
+
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(tmp_filename)
+        elif sys.platform.startswith("darwin"):
+            os.system(f"open '{tmp_filename}'")
+        else:
+            os.system(f"xdg-open '{tmp_filename}'")
+    except Exception as e:
+        QMessageBox.critical(parent, "Fehler", f"PDF konnte nicht geöffnet werden: {e}")

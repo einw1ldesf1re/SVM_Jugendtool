@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# virtuellen Umgebungen
+venv/
+env/
+ENV/
+.venv/
+
+# PyInstaller
+dist/
+build/
+*.spec
+
+# Executables
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs & Datenbanken
+*.log
+*.sqlite
+*.db
+training_manager.db
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# PyCharm / VSCode
+.idea/
+.vscode/
+*.iml
+
+# Temporäre Dateien
+*.tmp
+*.bak
+*.swp
+
+# Assets (optional, falls du sie versionieren willst, sonst auskommentieren)
+# assets/
