@@ -97,7 +97,10 @@ def print_member_list(parent=None, format="A4"):
 
 
         if(alter_int < 18):
-            member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            if(alter_int > 0):
+                member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            else:
+                member_data.append([str(counter), m['vorname'], m['nachname'], "-", "-"])
             counter+=1
 
     col_widths = [
@@ -429,9 +432,15 @@ def print_member_statistics(mid, parent=None, format="A4"):
         canvas_obj.setFont("Helvetica-Bold", 14*font_scale)
         canvas_obj.drawString(25, page_height - 50, f"Leistungsübersicht: {name}")
 
+        
         canvas_obj.setFont("Helvetica", 10*font_scale)
-        canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
+        if(age > 0):
+            canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
+        else:
+            canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: -")
+        
         canvas_obj.drawString(25, page_height - 80, f"Trainings teilgenommen: {total_trainings}")
+
 
         # Stand-Zeile
         canvas_obj.setFont("Helvetica", 9*font_scale)
