@@ -617,7 +617,10 @@ class MainWindow(QMainWindow):
                 if (today.month(), today.day()) < (birthday.month(), birthday.day()):
                     age -= 1
                 display_text = birthday.toString('dd.MM.yyyy')
-                bday_item = QTableWidgetItem(display_text)
+                if not(today < birthday):
+                    bday_item = QTableWidgetItem(display_text + f" ({age})")
+                else:
+                    bday_item = QTableWidgetItem("-")
                 if age >= 18:
                     bday_item.setText(f"⚠ {display_text}")
                     bday_item.setForeground(QBrush(QColor("red")))
