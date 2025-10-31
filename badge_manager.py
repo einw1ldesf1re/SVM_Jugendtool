@@ -84,8 +84,13 @@ class BadgeManager:
         # === 2. Trainings in Folge berechnen ===
         consecutive = self.get_consecutive_trainings(mitglied_id)
         self.update_badge(mitglied_id, "Trainingsserie", consecutive)
+     
+        # === 3. Anzahl der Schuss ===
+        amount_shots = self.get_amount_shots(mitglied_id)
+        self.update_badge(mitglied_id, "Schussanzahl", amount_shots)
 
     def get_consecutive_trainings(self, mid):
+        
         """
         Zählt, wie viele Trainings ein Mitglied in Folge besucht hat,
         basierend auf der Reihenfolge der von dir angelegten Trainings.
@@ -115,3 +120,14 @@ class BadgeManager:
                 break  # Kette unterbrochen
 
         return consecutive
+
+    def get_amount_shots(self, mid):
+        result = query_db("""
+            SELECT SUM(schussanzahl) AS total_shots
+            FROM ergebnisse
+            WHERE mitglied_id=?
+        """, (mid,), single=True)
+
+        if result and result['total_shots'] is not None:
+            return result['total_shots']
+        return 0

@@ -53,3 +53,31 @@ Trainingsserie:
       label: "Meister des Durchhaltens"
       description: "An 12 Trainings in Folge teilgenommen"
       icon: "icons/trainingsserie_lv5.png"
+
+Schussanzahl:
+  levels:
+    1:
+      threshold: 50
+      label: "Erste 50"
+      description: "50 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv1.png"
+    2:
+      threshold: 150
+      label: "In Fahrt"
+      description: "150 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv2.png"
+    3:
+      threshold: 300
+      label: "Dreihunderter"
+      description: "300 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv3.png"
+    4:
+      threshold: 600
+      label: "Sechshunderter"
+      description: "600 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv4.png"
+    5:
+      threshold: 1000
+      label: "Tausender"
+      description: "1000 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv5.png"

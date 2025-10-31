@@ -447,18 +447,18 @@ class MainWindow(QMainWindow):
             self.status.showMessage('Training hinzugefügt', 3000)
 
     def edit_result_by_id(self, eid):
-        """Ergebnis bearbeiten."""
+        """Ergebnis bearbeiten und Badges für alte und neue Daten aktualisieren."""
         # Ergebnis-Daten abrufen
-        data = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
-        if not data:
+        old_data = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
+        if not old_data:
             QMessageBox.warning(self, "Fehler", "Das Ergebnis existiert nicht mehr.")
             self.load_trainings()
             return
 
-        tid = data['training_id']  # Training-ID aus dem Ergebnis
+        tid = old_data['training_id']
 
-        # Dialog zum Bearbeiten öffnen und tid übergeben
-        dlg = ResultDialog(self, tid=tid, data=data)
+        # Dialog zum Bearbeiten öffnen
+        dlg = ResultDialog(self, tid=tid, data=old_data)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_data = dlg.get_data()
 
@@ -485,6 +485,14 @@ class MainWindow(QMainWindow):
                 new_data['mitglied_id'], new_data['kategorie_id'], new_data['anschlag_id'],
                 new_data['schussanzahl'], new_data['gesamtpunktzahl'], eid
             ))
+
+            # Badges aktualisieren:
+            # 1. Alte Daten: ggf. Badge-Level zurücksetzen / korrigieren
+            self.bm.update_all_badges(old_data['mitglied_id'])
+            # 2. Neue Daten: Fortschritt mit neuem Ergebnis prüfen
+            if new_data['mitglied_id'] != old_data['mitglied_id']:
+                # Wenn das Mitglied gewechselt hat, Badge auch für neuen Teilnehmer prüfen
+                self.bm.update_all_badges(new_data['mitglied_id'])
 
             self.load_trainings()
             self.status.showMessage("Ergebnis aktualisiert", 3000)
@@ -795,6 +803,8 @@ class MainWindow(QMainWindow):
         try:
             # --- Zuerst Ergebnisse löschen ---
             query_db("DELETE FROM ergebnisse WHERE mitglied_id=?", (mid,))
+
+            query_db("DELETE FROM badges_progress WHERE mitglied_id=?", (mid,))
 
             # --- Dann Mitglied löschen ---
             query_db("DELETE FROM mitglieder WHERE mitglieder_id=?", (mid,))
