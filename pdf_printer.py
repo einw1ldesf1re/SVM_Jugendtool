@@ -16,6 +16,8 @@ from itertools import groupby
 from operator import itemgetter
 from db import query_db
 
+from badge_manager import BadgeManager
+
 def print_member_list(parent=None, format="A4"):
     page_size = A5 if format.upper() == "A5" else A4
     page_width, page_height = page_size
@@ -365,7 +367,7 @@ def print_training_results(training_id, parent=None, format="A4"):
 
 
 def print_member_statistics(mid, parent=None, format="A4"):
- # === Seiten & Schriftgrößen ===
+    # === Seiten & Schriftgrößen ===
     page_size = A5 if format.upper() == "A5" else A4
     page_width, page_height = page_size
     font_scale = 0.8 if format.upper() == "A5" else 1.0
@@ -432,15 +434,13 @@ def print_member_statistics(mid, parent=None, format="A4"):
         canvas_obj.setFont("Helvetica-Bold", 14*font_scale)
         canvas_obj.drawString(25, page_height - 50, f"Leistungsübersicht: {name}")
 
-        
         canvas_obj.setFont("Helvetica", 10*font_scale)
-        if(age > 0):
+        if age > 0:
             canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
         else:
             canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: -")
         
         canvas_obj.drawString(25, page_height - 80, f"Trainings teilgenommen: {total_trainings}")
-
 
         # Stand-Zeile
         canvas_obj.setFont("Helvetica", 9*font_scale)
@@ -464,15 +464,21 @@ def print_member_statistics(mid, parent=None, format="A4"):
     if disc_counts:
         labels = [d['kategorie'] for d in disc_counts]
         sizes = [d['trainings'] for d in disc_counts]
-        fig, ax = plt.subplots(figsize=(4,4))
+        
+        # kleinere Figur
+        fig, ax = plt.subplots(figsize=(3,3))  # vorher 4x4
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-        ax.set_title("Trainingsbeteiligung pro Disziplin")
+        ax.set_title("Trainingsbeteiligung pro Disziplin", fontsize=10)
         plt.tight_layout()
+        
         chart_path = os.path.join(tempfile.gettempdir(), f"pie_{mid}.png")
         plt.savefig(chart_path, dpi=150)
         plt.close(fig)
-        elements.append(Image(chart_path, width=page_width/2, height=page_width/2))
-        elements.append(Spacer(1, 14))
+        
+        # kleiner im PDF einfügen
+        img_width = page_width / 3  # vorher page_width/2
+        elements.append(Image(chart_path, width=img_width, height=img_width))
+        elements.append(Spacer(1, 10))  # kleiner Spacer
 
     # === Bestes Ergebnis pro Disziplin ===
     elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
@@ -481,7 +487,7 @@ def print_member_statistics(mid, parent=None, format="A4"):
         FROM ergebnisse e
         LEFT JOIN kategorien k ON k.kategorie_id=e.kategorie_id
         LEFT JOIN training t ON t.training_id=e.training_id
-        LEFT JOIN anschlaege a ON a.anschlag_id=e.anschlag_id
+        LEFT JOIN anschlaege a ON a.anschlag_id = e.anschlag_id
         WHERE e.mitglied_id=?
         AND e.gesamtpunktzahl = (
             SELECT MAX(e2.gesamtpunktzahl)
@@ -516,6 +522,66 @@ def print_member_statistics(mid, parent=None, format="A4"):
     elements.append(t)
     elements.append(Spacer(1, 14))
 
+    # === Badges laden und darstellen ===
+    badge_manager = BadgeManager()
+    badges = badge_manager.get_badges(mid)
+
+    if badges:
+        elements.append(Spacer(1, 14))
+        elements.append(Paragraph("Erreichte Auszeichnungen:", header_style))
+        elements.append(Spacer(1, 6))
+
+        badge_elements = []
+        row = []
+        max_cols = 4
+        icon_size = 50 * font_scale
+
+        for b in badges:
+            badge_key = b['badge_key']
+            current_level = b['current_level']
+
+            badge_info = badge_manager.badges.get(badge_key)
+            if not badge_info:
+                continue
+
+            levels = badge_info.get('levels', {})
+            level_key = current_level
+            if level_key not in levels:
+                continue
+
+            level_data = levels[level_key]
+            ASSETS_PATH = os.path.join(os.path.dirname(__file__), "assets", "badges")
+            icon_rel_path = level_data['icon']
+            icon_path = os.path.join(ASSETS_PATH, icon_rel_path)
+            label = level_data['label']
+
+            description = level_data['description']
+
+            img = Image(icon_path, width=icon_size, height=icon_size)
+            label_para = Paragraph(f"<b>{label}</b>", ParagraphStyle('badgeLabel', parent=normal_style, alignment=1, fontSize=8*font_scale))
+            desc_para = Paragraph(description, ParagraphStyle('badgeDesc', parent=normal_style, alignment=1, fontSize=6*font_scale, leading=7*font_scale))
+
+            cell = [img, label_para, desc_para]
+            row.append(cell)
+
+            if len(row) == max_cols:
+                badge_elements.append(row)
+                row = []
+
+        if row:
+            while len(row) < max_cols:
+                row.append(Spacer(1, icon_size + 20))
+            badge_elements.append(row)
+
+        if badge_elements:
+            table = Table(badge_elements, colWidths=[(page_width - 50)/max_cols]*max_cols, hAlign='CENTER')
+            table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 14))
+
     # === Verlaufdiagramme 2 nebeneinander ===
     results_sorted = sorted(results, key=itemgetter('kategorie', 'anschlag', 'schussanzahl'))
     line_charts = []
@@ -528,7 +594,7 @@ def print_member_statistics(mid, parent=None, format="A4"):
         points = [r['gesamtpunktzahl'] for r in disc_results]
 
         width_inch = min(max(len(dates) * 1.2, 5), 7)
-        height_inch = 2.7  # etwas niedriger als vorher (vorher 4.0)
+        height_inch = 2.7
 
         fig, ax = plt.subplots(figsize=(width_inch, height_inch), dpi=150)
         ax.plot(dates, points, marker='o', linestyle='-', color='blue')
@@ -545,10 +611,8 @@ def print_member_statistics(mid, parent=None, format="A4"):
         plt.savefig(chart_path, dpi=150)
         plt.close(fig)
 
-        # Höhe anpassen – harmonisch mit A4
         img = Image(chart_path, width=page_width/2 - 40, height=height_inch*80)
         line_charts.append(img)
-
 
     for i in range(0, len(line_charts), 2):
         row = line_charts[i:i+2]

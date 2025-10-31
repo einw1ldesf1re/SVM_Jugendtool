@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import partial
 
 from pdf_printer import print_training_results, print_member_list, print_member_statistics
-
+from badge_manager import BadgeManager
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
         self.training_tables = {}  # Für pro-Training Tabellen
         self.current_training_id = None
         self.current_result_row = None
+        self.bm = BadgeManager()
         self.setup_ui()
         self.load_all()
 
@@ -389,6 +390,17 @@ class MainWindow(QMainWindow):
                     )
                     
             self.load_trainings()
+
+            """checkt badges"""
+            
+            training_count = query_db(
+                "SELECT COUNT(DISTINCT training_id) as cnt FROM ergebnisse WHERE mitglied_id=?",
+                (data['mitglied_id'],),
+                single=True
+            )["cnt"]
+
+            self.bm.update_badge(data['mitglied_id'], "Trainingsorden", progress_value=training_count)
+
             self.status.showMessage("Ergebnis hinzugefügt", 3000)
 
     def add_training(self):
@@ -492,8 +504,27 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if confirm == QMessageBox.StandardButton.Yes:
+            
+            row = query_db(
+                "SELECT mitglied_id FROM ergebnisse WHERE ergebnis_id=?",
+                (eid,),
+                single=True
+            )
+            mitglied_id = row['mitglied_id'] if row else None
+
             query_db('DELETE FROM ergebnisse WHERE ergebnis_id=?', (eid,))
             self.load_trainings()
+
+            if mitglied_id:
+                #Trainingsorden aktuallisieren
+                total_trainings = query_db(
+                    "SELECT COUNT(DISTINCT training_id) as cnt FROM ergebnisse WHERE mitglied_id=?",
+                    (mitglied_id,),
+                    single=True
+                )["cnt"]
+
+                self.bm.update_badge(mitglied_id, "Trainingsorden", progress_value=total_trainings)
+            
             self.status.showMessage("Ergebnis gelöscht", 3000)
 
     def delete_training_by_id(self, tid):
