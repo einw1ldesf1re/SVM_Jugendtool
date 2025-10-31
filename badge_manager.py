@@ -33,7 +33,7 @@ class BadgeManager:
         next_level = current_level + 1
         levels = badge_info["levels"]
 
-        if str(next_level) in levels and progress >= levels[str(next_level)]["threshold"]:
+        if next_level in levels and progress >= levels[next_level]["threshold"]:
             # Neues Level erreicht
             current_level = next_level
             achieved_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -65,7 +65,53 @@ class BadgeManager:
     def get_badges(self, mitglied_id):
         """Alle Badges und Level eines Mitglieds laden"""
         rows = query_db(
-            "SELECT badge_key, current_level, progress, achieved_at FROM badges_progress WHERE mitglied_id=?",
+            "SELECT badge_key, current_level, progress, achieved_at FROM badges_progress WHERE mitglied_id=? AND current_level > 0",
             (mitglied_id,)
         )
         return rows
+    
+    def update_all_badges(self, mitglied_id):
+        """Aktualisiert alle Badge-Typen eines Mitglieds"""
+
+        # === 1. Normaler Trainings-Progress ===
+        total_trainings = query_db("""
+            SELECT COUNT(DISTINCT training_id) AS total
+            FROM ergebnisse
+            WHERE mitglied_id=?
+        """, (mitglied_id,), single=True)["total"]
+        self.update_badge(mitglied_id, "Trainingsorden", total_trainings)
+
+        # === 2. Trainings in Folge berechnen ===
+        consecutive = self.get_consecutive_trainings(mitglied_id)
+        self.update_badge(mitglied_id, "Trainingsserie", consecutive)
+
+    def get_consecutive_trainings(self, mid):
+        """
+        Zählt, wie viele Trainings ein Mitglied in Folge besucht hat,
+        basierend auf der Reihenfolge der von dir angelegten Trainings.
+        """
+        # Alle Trainings absteigend nach startzeit
+        trainings = query_db("""
+            SELECT t.training_id
+            FROM training t
+            ORDER BY t.startzeit DESC
+        """)
+
+        if not trainings:
+            return 0
+
+        # Trainings, die das Mitglied besucht hat
+        attended = set(r['training_id'] for r in query_db("""
+            SELECT training_id
+            FROM ergebnisse
+            WHERE mitglied_id = ?
+        """, (mid,)))
+
+        consecutive = 0
+        for t in trainings:
+            if t['training_id'] in attended:
+                consecutive += 1
+            else:
+                break  # Kette unterbrochen
+
+        return consecutive

@@ -27,28 +27,29 @@ Trainingsorden:
       icon: "icons/trainingsorden_lv5.png"
 
 Trainingsserie:
-  1:
-    threshold: 3
-    label: "Dranbleiber"
-    description: "An 3 Trainings in Folge teilgenommen"
-    icon: "icons/trainingsserie_lv1.png"
-  2:
-    threshold: 5
-    label: "Durchstarter"
-    description: "An 5 Trainings in Folge teilgenommen"
-    icon: "icons/trainingsserie_lv2.png"
-  3:
-    threshold: 8
-    label: "Kontinuierlich"
-    description: "An 8 Trainings in Folge teilgenommen"
-    icon: "icons/trainingsserie_lv3.png"
-  4:
-    threshold: 10
-    label: "Unaufhaltbar"
-    description: "An 10 Trainings in Folge teilgenommen"
-    icon: "icons/trainingsserie_lv4.png"
-  5:
-    threshold: 12
-    label: "Meister des Durchhaltens"
-    description: "An 12 Trainings in Folge teilgenommen"
-    icon: "icons/trainingsserie_lv5.png"
+  levels:
+    1:
+      threshold: 3
+      label: "Dranbleiber"
+      description: "An 3 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv1.png"
+    2:
+      threshold: 5
+      label: "Durchstarter"
+      description: "An 5 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv2.png"
+    3:
+      threshold: 8
+      label: "Kontinuierlich"
+      description: "An 8 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv3.png"
+    4:
+      threshold: 10
+      label: "Unaufhaltbar"
+      description: "An 10 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv4.png"
+    5:
+      threshold: 12
+      label: "Meister des Durchhaltens"
+      description: "An 12 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv5.png"

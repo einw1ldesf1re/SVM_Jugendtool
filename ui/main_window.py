@@ -392,14 +392,8 @@ class MainWindow(QMainWindow):
             self.load_trainings()
 
             """checkt badges"""
-            
-            training_count = query_db(
-                "SELECT COUNT(DISTINCT training_id) as cnt FROM ergebnisse WHERE mitglied_id=?",
-                (data['mitglied_id'],),
-                single=True
-            )["cnt"]
+            self.bm.update_all_badges(data['mitglied_id'])
 
-            self.bm.update_badge(data['mitglied_id'], "Trainingsorden", progress_value=training_count)
 
             self.status.showMessage("Ergebnis hinzugefügt", 3000)
 
@@ -516,14 +510,7 @@ class MainWindow(QMainWindow):
             self.load_trainings()
 
             if mitglied_id:
-                #Trainingsorden aktuallisieren
-                total_trainings = query_db(
-                    "SELECT COUNT(DISTINCT training_id) as cnt FROM ergebnisse WHERE mitglied_id=?",
-                    (mitglied_id,),
-                    single=True
-                )["cnt"]
-
-                self.bm.update_badge(mitglied_id, "Trainingsorden", progress_value=total_trainings)
+                self.bm.update_all_badges(mitglied_id)
             
             self.status.showMessage("Ergebnis gelöscht", 3000)
 
@@ -536,6 +523,12 @@ class MainWindow(QMainWindow):
         )
         if ok != QMessageBox.StandardButton.Yes:
             return
+        
+        mitglieder = query_db(
+            "SELECT DISTINCT mitglied_id FROM ergebnisse WHERE training_id=?",
+            (tid,)
+        )
+        mitglied_ids = [m['mitglied_id'] for m in mitglieder]
 
         query_db('DELETE FROM ergebnisse WHERE training_id=?', (tid,))
 
@@ -545,6 +538,10 @@ class MainWindow(QMainWindow):
 
         # Trainingsliste neu laden
         self.load_trainings()
+
+        for mid in mitglied_ids:
+            self.bm.update_all_badges(mid)
+
         self.status.showMessage('Training und alle zugehörigen Daten gelöscht', 3000)
 
     def print_training_by_id(self, tid):

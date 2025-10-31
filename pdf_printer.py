@@ -483,18 +483,27 @@ def print_member_statistics(mid, parent=None, format="A4"):
     # === Bestes Ergebnis pro Disziplin ===
     elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
     best_results = query_db("""
-        SELECT k.name AS kategorie, e.anschlag_id, e.schussanzahl, e.gesamtpunktzahl, t.startzeit, a.name AS anschlag
+        SELECT 
+            k.name AS kategorie, 
+            e.anschlag_id, 
+            e.schussanzahl, 
+            e.gesamtpunktzahl, 
+            t.startzeit, 
+            COALESCE(a.name, '') AS anschlag
         FROM ergebnisse e
-        LEFT JOIN kategorien k ON k.kategorie_id=e.kategorie_id
-        LEFT JOIN training t ON t.training_id=e.training_id
+        LEFT JOIN kategorien k ON k.kategorie_id = e.kategorie_id
+        LEFT JOIN training t ON t.training_id = e.training_id
         LEFT JOIN anschlaege a ON a.anschlag_id = e.anschlag_id
         WHERE e.mitglied_id=?
         AND e.gesamtpunktzahl = (
             SELECT MAX(e2.gesamtpunktzahl)
             FROM ergebnisse e2
-            WHERE e2.mitglied_id=? AND e2.kategorie_id=e.kategorie_id
+            WHERE e2.mitglied_id=? 
+            AND e2.kategorie_id = e.kategorie_id
+            AND (e2.anschlag_id = e.anschlag_id OR (e2.anschlag_id IS NULL AND e.anschlag_id IS NULL))
+            AND e2.schussanzahl = e.schussanzahl
         )
-        ORDER BY k.name
+        ORDER BY k.name, anschlag, e.schussanzahl
     """, (mid, mid))
 
     table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
@@ -583,9 +592,23 @@ def print_member_statistics(mid, parent=None, format="A4"):
             elements.append(Spacer(1, 14))
 
     # === Verlaufdiagramme 2 nebeneinander ===
-    results_sorted = sorted(results, key=itemgetter('kategorie', 'anschlag', 'schussanzahl'))
+    results_sorted = sorted(
+        results,
+        key=lambda r: (
+            r['kategorie'] or '',
+            r['anschlag'] or '',
+            r['schussanzahl'] if r['schussanzahl'] is not None else 0
+        )
+    )
     line_charts = []
-    for (disc, anschlag, schussanzahl), group in groupby(results_sorted, key=itemgetter('kategorie', 'anschlag', 'schussanzahl')):
+    for (disc, anschlag, schussanzahl), group in groupby(
+        results_sorted,
+        key=lambda r: (
+            r['kategorie'] or '',
+            r['anschlag'] or '',
+            r['schussanzahl'] if r['schussanzahl'] is not None else 0
+        )
+    ):
         disc_results = list(group)
         if len(disc_results) < 2:
             continue
