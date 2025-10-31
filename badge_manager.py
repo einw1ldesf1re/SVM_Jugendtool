@@ -62,6 +62,25 @@ class BadgeManager:
                 (mitglied_id, badge_key, current_level, progress)
             )
 
+    def set_badge_level(self, mitglied_id, badge_key, level):
+        """Direkt ein bestimmtes Level für einen Badge setzen"""
+        if level <= 0:
+            return
+
+        achieved_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        query_db(
+            """
+            INSERT INTO badges_progress (mitglied_id, badge_key, current_level, progress, achieved_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(mitglied_id, badge_key)
+            DO UPDATE SET current_level=excluded.current_level,
+                        progress=excluded.progress,
+                        achieved_at=excluded.achieved_at
+            """,
+            (mitglied_id, badge_key, level, level, achieved_at)
+        )
+
     def get_badges(self, mitglied_id):
         """Alle Badges und Level eines Mitglieds laden"""
         rows = query_db(
@@ -88,6 +107,53 @@ class BadgeManager:
         # === 3. Anzahl der Schuss ===
         amount_shots = self.get_amount_shots(mitglied_id)
         self.update_badge(mitglied_id, "Schussanzahl", amount_shots)
+
+        # === 4. Leistungs-Badges pro Kategorie ===
+        categories = query_db("SELECT kategorie_id, name FROM kategorien")
+        cat_map = {c["name"].lower(): c["kategorie_id"] for c in categories}
+
+        # Gruppierung definieren: nur Lichtgewehr + Luftgewehr zusammenfassen
+        grouped = {
+            "Gewehr": [cat_map.get("lichtgewehr"), cat_map.get("luftgewehr")]
+        }
+
+        processed_ids = set()
+
+        # 🔧 Hilfsfunktion: Dynamisch aus YAML ermitteln, welches Level der Prozentsatz erreicht
+        def get_dynamic_performance_level(badge_info, percent):
+            levels = badge_info.get("levels", {})
+            achieved_level = 0
+            for lvl, info in sorted(levels.items(), key=lambda x: int(x[0])):
+                threshold = info.get("threshold", 0)
+                if percent >= threshold:
+                    achieved_level = int(lvl)
+                else:
+                    break
+            return achieved_level
+
+        # 1️⃣ Gruppe "Gewehr" (Licht- & Luftgewehr zusammengefasst)
+        gewehr_ids = [cid for cid in grouped["Gewehr"] if cid]
+        if gewehr_ids:
+            perf = self.get_group_performance(mitglied_id, gewehr_ids, last_n=5)
+            badge_key = "Leistungsorden_Gewehr"
+            badge_info = self.badges.get(badge_key, {})
+            level = get_dynamic_performance_level(badge_info, perf)
+            if level > 0:
+                self.set_badge_level(mitglied_id, badge_key, level)
+            processed_ids.update(gewehr_ids)
+
+        # 2️⃣ Alle anderen Kategorien einzeln auswerten
+        for name, cid in cat_map.items():
+            if not cid or cid in processed_ids:
+                continue  # Lichtgewehr + Luftgewehr wurden schon verarbeitet
+
+            perf = self.get_group_performance(mitglied_id, [cid], last_n=5)
+            badge_key = f"Leistungsorden_{name.capitalize()}"
+            badge_info = self.badges.get(badge_key, {})
+            level = get_dynamic_performance_level(badge_info, perf)
+
+            if level > 0:
+                self.set_badge_level(mitglied_id, badge_key, level)
 
     def get_consecutive_trainings(self, mid):
         
@@ -131,3 +197,24 @@ class BadgeManager:
         if result and result['total_shots'] is not None:
             return result['total_shots']
         return 0
+    
+    def get_group_performance(self, mid, categories, last_n=5):
+        """Durchschnittliche Punkte (%) über mehrere Kategorien"""
+        placeholders = ",".join("?" * len(categories))
+        params = [mid] + categories + [last_n]
+
+        results = query_db(f"""
+            SELECT gesamtpunktzahl, schussanzahl
+            FROM ergebnisse
+            WHERE mitglied_id=? AND kategorie_id IN ({placeholders})
+            ORDER BY ergebnis_id DESC
+            LIMIT ?
+        """, params)
+
+        if not results:
+            return 0
+
+        total_points = sum(r["gesamtpunktzahl"] for r in results)
+        max_points = sum(r["schussanzahl"] * 10 for r in results if r["schussanzahl"])
+
+        return round((total_points / max_points) * 100, 1) if max_points else 0
