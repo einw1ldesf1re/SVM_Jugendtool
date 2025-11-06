@@ -197,24 +197,48 @@ class BadgeManager:
         if result and result['total_shots'] is not None:
             return result['total_shots']
         return 0
-    
     def get_group_performance(self, mid, categories, last_n=5):
-        """Durchschnittliche Punkte (%) über mehrere Kategorien"""
-        placeholders = ",".join("?" * len(categories))
-        params = [mid] + categories + [last_n]
+        """Durchschnittliche Punkte (%) über mehrere Kategorien.
+        Berücksichtigt nur die letzten 'gültigen' Ergebnisse (nicht 0, 0.0 oder Null)."""
+        if not categories:
+            return 0
 
+        placeholders = ",".join("?" * len(categories))
+        params = [mid] + categories
+
+        # Wir laden ALLE Ergebnisse in absteigender Reihenfolge – keine Limitierung hier
         results = query_db(f"""
             SELECT gesamtpunktzahl, schussanzahl
             FROM ergebnisse
             WHERE mitglied_id=? AND kategorie_id IN ({placeholders})
             ORDER BY ergebnis_id DESC
-            LIMIT ?
         """, params)
 
         if not results:
             return 0
 
-        total_points = sum(r["gesamtpunktzahl"] for r in results)
-        max_points = sum(r["schussanzahl"] * 10 for r in results if r["schussanzahl"])
+        filtered = []
+        for r in results:
+            val = str(r["gesamtpunktzahl"]).strip().lower()
+
+            # ungültige Ergebnisse überspringen
+            if val in ("0", "0.0", "null", "", "none"):
+                continue
+            try:
+                val_f = float(val)
+                if val_f == 0.0:
+                    continue
+            except ValueError:
+                continue
+
+            filtered.append(r)
+            if len(filtered) >= last_n:  # sobald wir genug gültige Ergebnisse haben, abbrechen
+                break
+
+        if not filtered:
+            return 0
+
+        total_points = sum(r["gesamtpunktzahl"] for r in filtered)
+        max_points = sum(r["schussanzahl"] * 10 for r in filtered if r["schussanzahl"])
 
         return round((total_points / max_points) * 100, 1) if max_points else 0

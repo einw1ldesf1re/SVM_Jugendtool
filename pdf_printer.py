@@ -279,10 +279,7 @@ def print_training_results(training_id, parent=None, format="A4"):
     """, (training_id,))
 
     for disc in disciplines:
-        if disc['anschlag']:
-            header_text = f"{disc['kategorie']} / {disc['schussanzahl']} Schuss / {disc['anschlag']}"
-        else:
-            header_text = f"{disc['kategorie']} / {disc['schussanzahl']} Schuss"
+        header_text = f"{disc['kategorie']}" + (f" / {disc['schussanzahl']} Schuss" if disc['schussanzahl'] != 0 else "") + (f" / {disc['anschlag']}" if disc['anschlag'] else "")
         elements.append(Paragraph(header_text, header_style))
 
         results = query_db("""
@@ -310,7 +307,11 @@ def print_training_results(training_id, parent=None, format="A4"):
                 vorname_para = Paragraph(vorname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
                 nachname_para = Paragraph(nachname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
 
-            table_data.append([idx, vorname_para, nachname_para, r['gesamtpunktzahl']])
+            ergebnis = str(r['gesamtpunktzahl']).strip()
+            if ergebnis in ("0", "0.0", "", "None", "null"):
+                ergebnis = "k.A."
+
+            table_data.append([idx, vorname_para, nachname_para, ergebnis])
 
         rank_width = 25 * font_scale
         points_width = 45 * font_scale
@@ -364,7 +365,6 @@ def print_training_results(training_id, parent=None, format="A4"):
             os.system(f"xdg-open '{tmp_filename}'")
     except Exception as e:
         QMessageBox.critical(parent, "Fehler", f"PDF konnte nicht geöffnet werden: {str(e)}")
-
 
 def print_member_statistics(mid, parent=None, format="A4"):
     # === Seiten & Schriftgrößen ===
