@@ -218,6 +218,86 @@ class MainWindow(QMainWindow):
             content_layout.setContentsMargins(4, 4, 4, 4)
 
             if results:
+                # === Teilnehmerliste erzeugen ===
+                teilnehmer = []
+                for r in results:
+                    teilnehmer.append({
+                        "vorname": r['vorname'],
+                        "nachname": r['nachname'],
+                        "rolle": r['rolle']
+                    })
+
+                # --- Duplikate entfernen (nach Vor- & Nachname) ---
+                unique = {(t["vorname"], t["nachname"], t["rolle"]) for t in teilnehmer}
+                teilnehmer = [{"vorname": v, "nachname": n, "rolle": r} for (v, n, r) in unique]
+
+                # --- Sortieren: zuerst alphabetisch, dann Gäste nach unten ---
+                teilnehmer.sort(key=lambda x: (x["rolle"].lower() == "gast", x["nachname"].lower(), x["vorname"].lower()))
+
+                # === Teilnehmerliste anzeigen ===
+                subheader = QLabel("Teilnehmerliste")
+                subheader.setStyleSheet("""
+                    font-weight: bold;
+                    margin: 0;
+                    margin-top: 10px;
+                    margin-bottom: 4px;
+                    padding: 2px 0;
+                """)
+                content_layout.addWidget(subheader)
+
+                table_tn = QTableWidget()
+                table_tn.setColumnCount(3)
+                table_tn.setHorizontalHeaderLabels(["#", "Vorname", "Nachname"])
+                table_tn.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+                table_tn.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+                table_tn.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+                table_tn.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                table_tn.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+                table_tn.verticalHeader().setVisible(False)
+
+                table_tn.setRowCount(len(teilnehmer))
+                for i, t in enumerate(teilnehmer, start=1):
+                    item_nr = QTableWidgetItem(str(i))
+                    item_vor = QTableWidgetItem(t['vorname'])
+                    item_nach = QTableWidgetItem(t['nachname'])
+
+                    # Gäste kursiv & grau darstellen
+                    if t['rolle'] and t['rolle'].lower() == 'gast':
+                        guest_brush = QBrush(QColor("#888888"))
+                        for item in (item_vor, item_nach):
+                            item.setForeground(guest_brush)
+                            f = item.font()
+                            f.setItalic(True)
+                            item.setFont(f)
+
+                    table_tn.setItem(i-1, 0, item_nr)
+                    table_tn.setItem(i-1, 1, item_vor)
+                    table_tn.setItem(i-1, 2, item_nach)
+
+                # --- Tabelle optisch anpassen ---
+                table_tn.setStyleSheet("""
+                    QHeaderView::section {
+                        background-color: palette(dark);
+                        font-weight: bold;
+                        font-size: 13px;
+                        padding: 2px 0;
+                    }
+                    QTableView::item {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                    }
+                """)
+
+                # Höhe automatisch anpassen
+                table_height = table_tn.horizontalHeader().height()
+                for row in range(table_tn.rowCount()):
+                    table_height += table_tn.rowHeight(row)
+                table_tn.setFixedHeight(table_height)
+                table_tn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+                content_layout.addWidget(table_tn)
+
                 from collections import defaultdict
                 gruppen = defaultdict(list)
                 for r in results:
@@ -225,7 +305,8 @@ class MainWindow(QMainWindow):
                     gruppen[key].append(r)
 
                 for (kategorie, schussanzahl, anschlag), group in gruppen.items():
-                    subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
+
+                    subheader = QLabel(f"{kategorie}" +  (f" / {schussanzahl} Schuss" if schussanzahl != 0 else "") + (f" / {anschlag}" if anschlag else ""))
                     subheader.setStyleSheet("""
                         font-weight: bold;
                         margin: 0;
@@ -284,7 +365,13 @@ class MainWindow(QMainWindow):
 
                         table.setItem(i, 0, item_vor)
                         table.setItem(i, 1, item_nach)
-                        table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
+
+                        ergebnis = str(r['gesamtpunktzahl']).strip()
+
+                        if ergebnis in ("0", "0.0", "", "None", "null"):
+                            ergebnis = "k.A."
+
+                        table.setItem(i, 2, QTableWidgetItem(ergebnis))
 
                         # --- Button-Cell ---
                         btn_widget = QWidget()
