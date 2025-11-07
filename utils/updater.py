@@ -5,9 +5,10 @@ import requests
 import subprocess
 import tempfile
 import os
+import sys
 
 # URL zur Versionsinfo (raw auf main)
-UPDATE_INFO_URL = "https://einw1ldesf1re.github.io/SVM-Jugend/svm_version.json"
+UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 
 def get_current_version():
@@ -36,14 +37,21 @@ def download_and_run_installer(url):
     temp_dir = tempfile.gettempdir()
     installer_path = pathlib.Path(temp_dir) / "SVM-Jugend-Setup.exe"
 
-    with requests.get(url, stream=True, timeout=30) as r:
-        r.raise_for_status()
-        with open(installer_path, "wb") as f:
-            for chunk in r.iter_content(8192):
-                f.write(chunk)
+    try:
+        # Installer herunterladen
+        with requests.get(url, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            with open(installer_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
 
-    print(f"[UPDATE] Installer gespeichert unter {installer_path}")
-    # Starten des Installers (non-blocking)
-    subprocess.Popen([str(installer_path)])
-    # Sofort beenden, damit Installer überschreiben kann
-    os._exit(0)
+        print(f"[UPDATE] Installer gespeichert unter {installer_path}")
+
+        # Installer starten (non-blocking)
+        subprocess.Popen([str(installer_path)], shell=True)
+
+        # Sofort die aktuelle App beenden, damit Installer überschreiben kann
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"[UPDATE] Fehler beim Herunterladen oder Starten des Installers: {e}")
