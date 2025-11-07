@@ -35,19 +35,36 @@ jobs:
       - name: Bump patch version
         run: |
           $vfile = "version.json"
+
+          # version.json auslesen
           $data = Get-Content $vfile | ConvertFrom-Json
+
+          # Patch-Version erhöhen
           $parts = $data.version -split '\.'
           $parts[2] = [int]$parts[2] + 1
           $newVersion = "$($parts[0]).$($parts[1]).$($parts[2])"
           $data.version = $newVersion
+
+          # Zurückschreiben
           $data | ConvertTo-Json | Set-Content $vfile -Encoding UTF8
+
+          # Environment setzen
           Write-Host "VERSION=$newVersion" >> $env:GITHUB_ENV
+
+          # Git konfigurieren
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add version.json
-          git commit -m "Bump version to $newVersion [skip ci]" || echo "No changes to commit"
-          git push origin main
+
+          # Commit nur wenn Änderungen vorliegen
+          if ((git diff --cached --quiet) -eq $false) {
+              git commit -m "Bump version to $newVersion [skip ci]"
+              git push origin main
+          } else {
+              Write-Host "No changes to commit"
+          }
         shell: powershell
+
 
       - name: Build executable with PyInstaller
         run: |
