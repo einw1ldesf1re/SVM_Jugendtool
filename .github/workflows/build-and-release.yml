@@ -3,7 +3,7 @@ name: Build and Release (only on main)
 on:
   push:
     branches:
-      - main   # nur main
+      - main
 
 permissions:
   contents: write
@@ -50,10 +50,10 @@ jobs:
 
       - name: Build Installer with Inno Setup
         run: |
-          # Pfad zu ISCC.exe von Chocolatey
-          $iscc = "C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe"
-          if (-Not (Test-Path $iscc)) {
-              Write-Error "ISCC.exe nicht gefunden unter $iscc"
+          # ISCC.exe suchen
+          $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+              Write-Error "ISCC.exe konnte nicht gefunden werden!"
               exit 1
           }
           Write-Host "Using ISCC at $iscc"
