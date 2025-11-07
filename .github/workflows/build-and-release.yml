@@ -29,14 +29,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller requests
+          pip install pyinstaller
         shell: powershell
 
-      - name: Read version.json
-        id: version
+      - name: Bump patch version
         run: |
-          $v = Get-Content version.json | ConvertFrom-Json
-          Write-Host "VERSION=$($v.version)" >> $env:GITHUB_ENV
+          $vfile = "version.json"
+          $data = Get-Content $vfile | ConvertFrom-Json
+          $parts = $data.version -split '\.'
+          $parts[2] = [int]$parts[2] + 1
+          $newVersion = "$($parts[0]).$($parts[1]).$($parts[2])"
+          $data.version = $newVersion
+          $data | ConvertTo-Json | Set-Content $vfile -Encoding UTF8
+          Write-Host "VERSION=$newVersion" >> $env:GITHUB_ENV
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add version.json
+          git commit -m "Bump version to $newVersion [skip ci]" || echo "No changes to commit"
+          git push origin main
         shell: powershell
 
       - name: Build executable with PyInstaller
@@ -71,7 +81,7 @@ jobs:
           # Ins Repo-Verzeichnis wechseln
           Set-Location $repo
 
-          # Installer bauen
+          # Installer bauen mit Variablen
           & $iscc `
             /DMyExePath="$exePath" `
             /DMyIconPath="$iconPath" `
