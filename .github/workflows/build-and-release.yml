@@ -50,14 +50,15 @@ jobs:
 
       - name: Build Installer with Inno Setup
         run: |
-          # Prüfen, wo ISCC.exe installiert ist
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          # Pfad zu ISCC.exe von Chocolatey
+          $iscc = "C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe"
           if (-Not (Test-Path $iscc)) {
-              $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+              Write-Error "ISCC.exe nicht gefunden unter $iscc"
+              exit 1
           }
           Write-Host "Using ISCC at $iscc"
 
-          # Ins Repo-Verzeichnis wechseln (relative Pfade zur ISS)
+          # Ins Repo-Verzeichnis wechseln
           Set-Location $env:GITHUB_WORKSPACE
 
           # Installer bauen
