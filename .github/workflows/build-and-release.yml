@@ -50,7 +50,15 @@ jobs:
 
       - name: Build Installer with Inno Setup
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build_installer\SVM-Jugend.iss"
+          # Prüfen, wo ISCC.exe installiert ist
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-Not (Test-Path $iscc)) {
+              $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          }
+          Write-Host "Using ISCC at $iscc"
+
+          # Installer bauen
+          & $iscc "build_installer\SVM-Jugend.iss"
         shell: powershell
 
       - name: Upload Installer artifact
