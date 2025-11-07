@@ -1,0 +1,101 @@
+name: Build and Release (on push to main)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build exe on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+        shell: bash
+
+      - name: Read version.json
+        id: version
+        run: |
+          python - <<'PY'
+import json, pathlib
+vfile = pathlib.Path('version.json')
+print('version file exists:', vfile.exists())
+data = json.loads(vfile.read_text(encoding='utf-8'))
+print('::set-output name=version::' + data['version'])
+PY
+        shell: bash
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --icon=assets/icons/icon_512x512.ico --name SVM-Jugend --add-data "assets;assets" main.py
+        shell: cmd
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SVM-Jugend-exe
+          path: dist/SVM-Jugend.exe
+
+  release:
+    name: Create Release and update svm_version.json
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download exe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SVM-Jugend-exe
+          path: ./dist
+
+      - name: Read version.json
+        id: version2
+        run: |
+          VER=$(jq -r .version version.json)
+          echo "VER=$VER" >> $GITHUB_ENV
+
+      - name: Create Release (or update) with tag v<version>
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VER }}
+          name: v${{ env.VER }}
+          files: ./dist/SVM-Jugend.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update svm_version.json in repo (commit with [skip ci])
+        run: |
+          VERSION=${{ env.VER }}
+          REPO=${{ github.repository }}
+          URL="https://github.com/${REPO}/releases/latest/download/SVM-Jugend-Setup.exe"
+          echo "{ \"version\": \"${VERSION}\", \"url\": \"${URL}\" }" > svm_version.json
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add svm_version.json
+          git commit -m "Update version to ${VERSION} [skip ci]" || echo "no changes to commit"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
