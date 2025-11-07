@@ -69,17 +69,22 @@ jobs:
               if (-Not (Test-Path $f)) { Write-Error "Datei nicht gefunden: $f"; exit 1 }
           }
 
+          # Argumente vorbereiten
+          $args = @(
+              "/DMyExePath=$exePath",
+              "/DMyIconPath=$iconPath",
+              "/DMyBannerPath=$bannerPath",
+              "/DMySmallPath=$smallPath",
+              $issPath
+          )
+
           # Ins Repo-Verzeichnis wechseln
           Set-Location $repo
 
           # Installer bauen
-          & $iscc ` 
-            /DMyExePath="$exePath" ` 
-            /DMyIconPath="$iconPath" ` 
-            /DMyBannerPath="$bannerPath" ` 
-            /DMySmallPath="$smallPath" ` 
-            "$issPath"
+          & $iscc @args
         shell: powershell
+
 
       - name: Upload Installer artifact
         uses: actions/upload-artifact@v4
