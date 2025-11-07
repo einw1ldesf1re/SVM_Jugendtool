@@ -68,7 +68,7 @@ def init_database():
         # Tabelle: training
         c.execute("""
             CREATE TABLE IF NOT EXISTS training (
-                trainings_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                training_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 startzeit TIMESTAMP,
                 endzeit TIMESTAMP
             )
@@ -99,7 +99,7 @@ def init_database():
         c.execute("""
             CREATE TABLE IF NOT EXISTS ergebnisse (
                 ergebnis_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trainings_id INTEGER,
+                training_id INTEGER,
                 mitglied_id INTEGER,
                 kategorie_id INTEGER,
                 anschlag_id INTEGER,
