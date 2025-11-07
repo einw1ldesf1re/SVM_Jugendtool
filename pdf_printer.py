@@ -481,7 +481,6 @@ def print_member_statistics(mid, parent=None, format="A4"):
         elements.append(Spacer(1, 10))  # kleiner Spacer
 
     # === Bestes Ergebnis pro Disziplin ===
-    elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
     best_results = query_db("""
         SELECT 
             k.name AS kategorie, 
@@ -495,41 +494,45 @@ def print_member_statistics(mid, parent=None, format="A4"):
         LEFT JOIN training t ON t.training_id = e.training_id
         LEFT JOIN anschlaege a ON a.anschlag_id = e.anschlag_id
         WHERE e.mitglied_id=?
+        AND e.schussanzahl > 0
         AND e.gesamtpunktzahl = (
             SELECT MAX(e2.gesamtpunktzahl)
             FROM ergebnisse e2
             WHERE e2.mitglied_id=? 
-            AND e2.kategorie_id = e.kategorie_id
-            AND (e2.anschlag_id = e.anschlag_id OR (e2.anschlag_id IS NULL AND e.anschlag_id IS NULL))
-            AND e2.schussanzahl = e.schussanzahl
+                AND e2.kategorie_id = e.kategorie_id
+                AND (e2.anschlag_id = e.anschlag_id OR (e2.anschlag_id IS NULL AND e.anschlag_id IS NULL))
+                AND e2.schussanzahl = e.schussanzahl
         )
         ORDER BY k.name, anschlag, e.schussanzahl
     """, (mid, mid))
 
-    table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
-    for r in best_results:
-        date_str = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yyyy')
-        table_data.append([r['kategorie'], r['anschlag'] or "-", r['schussanzahl'], r['gesamtpunktzahl'], date_str])
+    if(best_results):
+        elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
+        table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
+        for r in best_results:
 
-    col_widths = [
-        (page_width - 50) * 0.25,
-        (page_width - 50) * 0.15,
-        (page_width - 50) * 0.20,
-        (page_width - 50) * 0.15,
-        (page_width - 50) * 0.25,
-    ]
-    t = Table(table_data, colWidths=col_widths, hAlign='CENTER')
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('ALIGN', (2,1), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 10*font_scale),
-    ]))
-    elements.append(t)
-    elements.append(Spacer(1, 14))
+            date_str = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yyyy')
+            table_data.append([r['kategorie'], r['anschlag'] or "-", r['schussanzahl'], r['gesamtpunktzahl'], date_str])
+
+        col_widths = [
+            (page_width - 50) * 0.25,
+            (page_width - 50) * 0.15,
+            (page_width - 50) * 0.20,
+            (page_width - 50) * 0.15,
+            (page_width - 50) * 0.25,
+        ]
+        t = Table(table_data, colWidths=col_widths, hAlign='CENTER')
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('ALIGN', (2,1), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 10*font_scale),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 14))
 
     # === Badges laden und darstellen ===
     badge_manager = BadgeManager()
@@ -592,12 +595,18 @@ def print_member_statistics(mid, parent=None, format="A4"):
             elements.append(Spacer(1, 14))
 
     # === Verlaufdiagramme 2 nebeneinander ===
+
+    valid_results = [
+        r for r in results
+        if r.get('schussanzahl') and r['schussanzahl'] > 0
+    ]
+
     results_sorted = sorted(
-        results,
+        valid_results,
         key=lambda r: (
             r['kategorie'] or '',
             r['anschlag'] or '',
-            r['schussanzahl'] if r['schussanzahl'] is not None else 0
+            r['schussanzahl']
         )
     )
     line_charts = []
@@ -606,7 +615,7 @@ def print_member_statistics(mid, parent=None, format="A4"):
         key=lambda r: (
             r['kategorie'] or '',
             r['anschlag'] or '',
-            r['schussanzahl'] if r['schussanzahl'] is not None else 0
+            r['schussanzahl']
         )
     ):
         disc_results = list(group)
