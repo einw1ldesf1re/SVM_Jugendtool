@@ -16,6 +16,8 @@ from itertools import groupby
 from operator import itemgetter
 from db import query_db
 
+from badge_manager import BadgeManager
+
 def print_member_list(parent=None, format="A4"):
     page_size = A5 if format.upper() == "A5" else A4
     page_width, page_height = page_size
@@ -97,7 +99,10 @@ def print_member_list(parent=None, format="A4"):
 
 
         if(alter_int < 18):
-            member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            if(alter_int > 0):
+                member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
+            else:
+                member_data.append([str(counter), m['vorname'], m['nachname'], "-", "-"])
             counter+=1
 
     col_widths = [
@@ -274,10 +279,7 @@ def print_training_results(training_id, parent=None, format="A4"):
     """, (training_id,))
 
     for disc in disciplines:
-        if disc['anschlag']:
-            header_text = f"{disc['kategorie']} / {disc['schussanzahl']} Schuss / {disc['anschlag']}"
-        else:
-            header_text = f"{disc['kategorie']} / {disc['schussanzahl']} Schuss"
+        header_text = f"{disc['kategorie']}" + (f" / {disc['schussanzahl']} Schuss" if disc['schussanzahl'] != 0 else "") + (f" / {disc['anschlag']}" if disc['anschlag'] else "")
         elements.append(Paragraph(header_text, header_style))
 
         results = query_db("""
@@ -305,7 +307,11 @@ def print_training_results(training_id, parent=None, format="A4"):
                 vorname_para = Paragraph(vorname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
                 nachname_para = Paragraph(nachname, ParagraphStyle('LeftNormal', parent=normal_style, alignment=0))
 
-            table_data.append([idx, vorname_para, nachname_para, r['gesamtpunktzahl']])
+            ergebnis = str(r['gesamtpunktzahl']).strip()
+            if ergebnis in ("0", "0.0", "", "None", "null"):
+                ergebnis = "k.A."
+
+            table_data.append([idx, vorname_para, nachname_para, ergebnis])
 
         rank_width = 25 * font_scale
         points_width = 45 * font_scale
@@ -360,9 +366,8 @@ def print_training_results(training_id, parent=None, format="A4"):
     except Exception as e:
         QMessageBox.critical(parent, "Fehler", f"PDF konnte nicht geöffnet werden: {str(e)}")
 
-
 def print_member_statistics(mid, parent=None, format="A4"):
- # === Seiten & Schriftgrößen ===
+    # === Seiten & Schriftgrößen ===
     page_size = A5 if format.upper() == "A5" else A4
     page_width, page_height = page_size
     font_scale = 0.8 if format.upper() == "A5" else 1.0
@@ -430,7 +435,11 @@ def print_member_statistics(mid, parent=None, format="A4"):
         canvas_obj.drawString(25, page_height - 50, f"Leistungsübersicht: {name}")
 
         canvas_obj.setFont("Helvetica", 10*font_scale)
-        canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
+        if age > 0:
+            canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: {geburtsdatum.toString('dd.MM.yyyy')} ({age} Jahre)")
+        else:
+            canvas_obj.drawString(25, page_height - 65, f"Geburtsdatum: -")
+        
         canvas_obj.drawString(25, page_height - 80, f"Trainings teilgenommen: {total_trainings}")
 
         # Stand-Zeile
@@ -455,62 +464,160 @@ def print_member_statistics(mid, parent=None, format="A4"):
     if disc_counts:
         labels = [d['kategorie'] for d in disc_counts]
         sizes = [d['trainings'] for d in disc_counts]
-        fig, ax = plt.subplots(figsize=(4,4))
+        
+        # kleinere Figur
+        fig, ax = plt.subplots(figsize=(3,3))  # vorher 4x4
         ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-        ax.set_title("Trainingsbeteiligung pro Disziplin")
+        ax.set_title("Trainingsbeteiligung pro Disziplin", fontsize=10)
         plt.tight_layout()
+        
         chart_path = os.path.join(tempfile.gettempdir(), f"pie_{mid}.png")
         plt.savefig(chart_path, dpi=150)
         plt.close(fig)
-        elements.append(Image(chart_path, width=page_width/2, height=page_width/2))
-        elements.append(Spacer(1, 14))
+        
+        # kleiner im PDF einfügen
+        img_width = page_width / 3  # vorher page_width/2
+        elements.append(Image(chart_path, width=img_width, height=img_width))
+        elements.append(Spacer(1, 10))  # kleiner Spacer
 
     # === Bestes Ergebnis pro Disziplin ===
-    elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
     best_results = query_db("""
-        SELECT k.name AS kategorie, e.anschlag_id, e.schussanzahl, e.gesamtpunktzahl, t.startzeit, a.name AS anschlag
+        SELECT 
+            k.name AS kategorie, 
+            e.anschlag_id, 
+            e.schussanzahl, 
+            e.gesamtpunktzahl, 
+            t.startzeit, 
+            COALESCE(a.name, '') AS anschlag
         FROM ergebnisse e
-        LEFT JOIN kategorien k ON k.kategorie_id=e.kategorie_id
-        LEFT JOIN training t ON t.training_id=e.training_id
-        LEFT JOIN anschlaege a ON a.anschlag_id=e.anschlag_id
+        LEFT JOIN kategorien k ON k.kategorie_id = e.kategorie_id
+        LEFT JOIN training t ON t.training_id = e.training_id
+        LEFT JOIN anschlaege a ON a.anschlag_id = e.anschlag_id
         WHERE e.mitglied_id=?
+        AND e.schussanzahl > 0
         AND e.gesamtpunktzahl = (
             SELECT MAX(e2.gesamtpunktzahl)
             FROM ergebnisse e2
-            WHERE e2.mitglied_id=? AND e2.kategorie_id=e.kategorie_id
+            WHERE e2.mitglied_id=? 
+                AND e2.kategorie_id = e.kategorie_id
+                AND (e2.anschlag_id = e.anschlag_id OR (e2.anschlag_id IS NULL AND e.anschlag_id IS NULL))
+                AND e2.schussanzahl = e.schussanzahl
         )
-        ORDER BY k.name
+        ORDER BY k.name, anschlag, e.schussanzahl
     """, (mid, mid))
 
-    table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
-    for r in best_results:
-        date_str = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yyyy')
-        table_data.append([r['kategorie'], r['anschlag'] or "-", r['schussanzahl'], r['gesamtpunktzahl'], date_str])
+    if(best_results):
+        elements.append(Paragraph("Bestes Ergebnis pro Disziplin:", header_style))
+        table_data = [["Disziplin", "Anschlag", "Schussanzahl", "Punkte", "Datum"]]
+        for r in best_results:
 
-    col_widths = [
-        (page_width - 50) * 0.25,
-        (page_width - 50) * 0.15,
-        (page_width - 50) * 0.20,
-        (page_width - 50) * 0.15,
-        (page_width - 50) * 0.25,
-    ]
-    t = Table(table_data, colWidths=col_widths, hAlign='CENTER')
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.grey),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-        ('ALIGN', (2,1), (-1,-1), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 10*font_scale),
-    ]))
-    elements.append(t)
-    elements.append(Spacer(1, 14))
+            date_str = QDateTime.fromString(r['startzeit'], 'yyyy-MM-dd HH:mm:ss').toString('dd.MM.yyyy')
+            table_data.append([r['kategorie'], r['anschlag'] or "-", r['schussanzahl'], r['gesamtpunktzahl'], date_str])
+
+        col_widths = [
+            (page_width - 50) * 0.25,
+            (page_width - 50) * 0.15,
+            (page_width - 50) * 0.20,
+            (page_width - 50) * 0.15,
+            (page_width - 50) * 0.25,
+        ]
+        t = Table(table_data, colWidths=col_widths, hAlign='CENTER')
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('ALIGN', (2,1), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 10*font_scale),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 14))
+
+    # === Badges laden und darstellen ===
+    badge_manager = BadgeManager()
+    badges = badge_manager.get_badges(mid)
+
+    if badges:
+        elements.append(Spacer(1, 14))
+        elements.append(Paragraph("Erreichte Auszeichnungen:", header_style))
+        elements.append(Spacer(1, 6))
+
+        badge_elements = []
+        row = []
+        max_cols = 4
+        icon_size = 50 * font_scale
+
+        for b in badges:
+            badge_key = b['badge_key']
+            current_level = b['current_level']
+
+            badge_info = badge_manager.badges.get(badge_key)
+            if not badge_info:
+                continue
+
+            levels = badge_info.get('levels', {})
+            level_key = current_level
+            if level_key not in levels:
+                continue
+
+            level_data = levels[level_key]
+            ASSETS_PATH = os.path.join(os.path.dirname(__file__), "assets", "badges")
+            icon_rel_path = level_data['icon']
+            icon_path = os.path.join(ASSETS_PATH, icon_rel_path)
+            label = level_data['label']
+
+            description = level_data['description']
+
+            img = Image(icon_path, width=icon_size, height=icon_size)
+            label_para = Paragraph(f"<b>{label}</b>", ParagraphStyle('badgeLabel', parent=normal_style, alignment=1, fontSize=8*font_scale))
+            desc_para = Paragraph(description, ParagraphStyle('badgeDesc', parent=normal_style, alignment=1, fontSize=6*font_scale, leading=7*font_scale))
+
+            cell = [img, label_para, desc_para]
+            row.append(cell)
+
+            if len(row) == max_cols:
+                badge_elements.append(row)
+                row = []
+
+        if row:
+            while len(row) < max_cols:
+                row.append(Spacer(1, icon_size + 20))
+            badge_elements.append(row)
+
+        if badge_elements:
+            table = Table(badge_elements, colWidths=[(page_width - 50)/max_cols]*max_cols, hAlign='CENTER')
+            table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 14))
 
     # === Verlaufdiagramme 2 nebeneinander ===
-    results_sorted = sorted(results, key=itemgetter('kategorie', 'anschlag', 'schussanzahl'))
+
+    valid_results = [
+        r for r in results
+        if r.get('schussanzahl') and r['schussanzahl'] > 0
+    ]
+
+    results_sorted = sorted(
+        valid_results,
+        key=lambda r: (
+            r['kategorie'] or '',
+            r['anschlag'] or '',
+            r['schussanzahl']
+        )
+    )
     line_charts = []
-    for (disc, anschlag, schussanzahl), group in groupby(results_sorted, key=itemgetter('kategorie', 'anschlag', 'schussanzahl')):
+    for (disc, anschlag, schussanzahl), group in groupby(
+        results_sorted,
+        key=lambda r: (
+            r['kategorie'] or '',
+            r['anschlag'] or '',
+            r['schussanzahl']
+        )
+    ):
         disc_results = list(group)
         if len(disc_results) < 2:
             continue
@@ -519,7 +626,7 @@ def print_member_statistics(mid, parent=None, format="A4"):
         points = [r['gesamtpunktzahl'] for r in disc_results]
 
         width_inch = min(max(len(dates) * 1.2, 5), 7)
-        height_inch = 2.7  # etwas niedriger als vorher (vorher 4.0)
+        height_inch = 2.7
 
         fig, ax = plt.subplots(figsize=(width_inch, height_inch), dpi=150)
         ax.plot(dates, points, marker='o', linestyle='-', color='blue')
@@ -536,10 +643,8 @@ def print_member_statistics(mid, parent=None, format="A4"):
         plt.savefig(chart_path, dpi=150)
         plt.close(fig)
 
-        # Höhe anpassen – harmonisch mit A4
         img = Image(chart_path, width=page_width/2 - 40, height=height_inch*80)
         line_charts.append(img)
-
 
     for i in range(0, len(line_charts), 2):
         row = line_charts[i:i+2]

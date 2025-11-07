@@ -1,0 +1,196 @@
+Trainingsorden:
+  levels:
+    1:
+      threshold: 5
+      label: "Starter"
+      description: "Erfolgreich an 5 Trainingseinheiten teilgenommen"
+      icon: "icons/trainingsorden_lv1.png"
+    2:
+      threshold: 15
+      label: "Fortschrittler"
+      description: "Erfolgreich an 15 Trainingseinheiten teilgenommen"
+      icon: "icons/trainingsorden_lv2.png"
+    3:
+      threshold: 30
+      label: "Aufsteiger"
+      description: "Erfolgreich an 30 Trainingseinheiten teilgenommen"
+      icon: "icons/trainingsorden_lv3.png"
+    4:
+      threshold: 50
+      label: "Athlet"
+      description: "Erfolgreich an 50 Trainingseinheiten teilgenommen"
+      icon: "icons/trainingsorden_lv4.png"
+    5:
+      threshold: 100
+      label: "Champion"
+      description: "Erfolgreich an 100 Trainingseinheiten teilgenommen"
+      icon: "icons/trainingsorden_lv5.png"
+
+Trainingsserie:
+  levels:
+    1:
+      threshold: 3
+      label: "Dranbleiber"
+      description: "An 3 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv1.png"
+    2:
+      threshold: 5
+      label: "Durchstarter"
+      description: "An 5 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv2.png"
+    3:
+      threshold: 8
+      label: "Kontinuierlich"
+      description: "An 8 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv3.png"
+    4:
+      threshold: 10
+      label: "Unaufhaltbar"
+      description: "An 10 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv4.png"
+    5:
+      threshold: 12
+      label: "Meister des Durchhaltens"
+      description: "An 12 Trainings in Folge teilgenommen"
+      icon: "icons/trainingsserie_lv5.png"
+
+Schussanzahl:
+  levels:
+    1:
+      threshold: 50
+      label: "Erste 50"
+      description: "50 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv1.png"
+    2:
+      threshold: 150
+      label: "In Fahrt"
+      description: "150 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv2.png"
+    3:
+      threshold: 300
+      label: "Dreihunderter"
+      description: "300 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv3.png"
+    4:
+      threshold: 600
+      label: "Sechshunderter"
+      description: "600 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv4.png"
+    5:
+      threshold: 1000
+      label: "Tausender"
+      description: "1000 Schüsse abgegeben"
+      icon: "icons/schussanzahl_lv5.png"
+
+Leistungsorden_Gewehr:
+  levels:
+    1:
+      threshold: 50
+      label: "Einsatzbereit - Gewehr"
+      description: "50% Trefferquote erreicht"
+      icon: "icons/luftgewehr_lv1.png"
+    2:
+      threshold: 60
+      label: "Gefechtsfähig - Gewehr"
+      description: "60% Trefferquote erreicht"
+      icon: "icons/luftgewehr_lv2.png"
+    3:
+      threshold: 70
+      label: "Treffsicher - Gewehr"
+      description: "70% Trefferquote erreicht"
+      icon: "icons/luftgewehr_lv3.png"
+    4:
+      threshold: 80
+      label: "Scharfschütze - Gewehr"
+      description: "80% Trefferquote erreicht"
+      icon: "icons/luftgewehr_lv4.png"
+    5:
+      threshold: 90
+      label: "Präzisionsklasse - Gewehr"
+      description: "90% Trefferquote erreicht"
+      icon: "icons/luftgewehr_lv5.png"
+
+Leistungsorden_Bogen:
+  levels:
+    1:
+      threshold: 50
+      label: "Einsatzbereit - Bogen"
+      description: "50% Trefferquote erreicht"
+      icon: "icons/bogen_lv1.png"
+    2:
+      threshold: 60
+      label: "Gefechtsfähig - Bogen"
+      description: "60% Trefferquote erreicht"
+      icon: "icons/bogen_lv2.png"
+    3:
+      threshold: 70
+      label: "Treffsicher - Bogen"
+      description: "70% Trefferquote erreicht"
+      icon: "icons/bogen_lv3.png"
+    4:
+      threshold: 80
+      label: "Scharfschütze - Bogen"
+      description: "80% Trefferquote erreicht"
+      icon: "icons/bogen_lv4.png"
+    5:
+      threshold: 90
+      label: "Präzisionsklasse - Bogen"
+      description: "90% Trefferquote erreicht"
+      icon: "icons/bogen_lv5.png"
+
+Leistungsorden_Luftpistole:
+  levels:
+    1:
+      threshold: 50
+      label: "Einsatzbereit - Pistole"
+      description: "50% Trefferquote erreicht"
+      icon: "icons/luftpistole_lv1.png"
+    2:
+      threshold: 60
+      label: "Gefechtsfähig - Pistole"
+      description: "60% Trefferquote erreicht"
+      icon: "icons/luftpistole_lv2.png"
+    3:
+      threshold: 70
+      label: "Treffsicher - Pistole"
+      description: "70% Trefferquote erreicht"
+      icon: "icons/luftpistole_lv3.png"
+    4:
+      threshold: 80
+      label: "Scharfschütze - Pistole"
+      description: "80% Trefferquote erreicht"
+      icon: "icons/luftpistole_lv4.png"
+    5:
+      threshold: 90
+      label: "Präzisionsklasse - Pistole"
+      description: "90% Trefferquote erreicht"
+      icon: "icons/luftpistole_lv5.png"
+
+Leistungsorden_Blasrohr:
+  levels:
+    1:
+      threshold: 50
+      label: "Einsatzbereit - Blasrohr"
+      description: "50% Trefferquote erreicht"
+      icon: "icons/blasrohr_lv1.png"
+    2:
+      threshold: 60
+      label: "Gefechtsfähig - Blasrohr"
+      description: "60% Trefferquote erreicht"
+      icon: "icons/blasrohr_lv2.png"
+    3:
+      threshold: 70
+      label: "Treffsicher - Blasrohr"
+      description: "70% Trefferquote erreicht"
+      icon: "icons/blasrohr_lv3.png"
+    4:
+      threshold: 80
+      label: "Scharfschütze - Blasrohr"
+      description: "80% Trefferquote erreicht"
+      icon: "icons/blasrohr_lv4.png"
+    5:
+      threshold: 90
+      label: "Präzisionsklasse - Blasrohr"
+      description: "90% Trefferquote erreicht"
+      icon: "icons/blasrohr_lv5.png"
+

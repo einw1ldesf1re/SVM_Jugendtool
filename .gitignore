@@ -12,6 +12,7 @@ ENV/
 .venv/
 
 # PyInstaller
+Output/
 dist/
 build/
 *.spec
@@ -45,6 +46,9 @@ Desktop.ini
 *.tmp
 *.bak
 *.swp
+
+# datenbank ignorieren
+*.db
 
 # Assets (optional, falls du sie versionieren willst, sonst auskommentieren)
 # assets/

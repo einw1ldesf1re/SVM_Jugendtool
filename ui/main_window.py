@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import partial
 
 from pdf_printer import print_training_results, print_member_list, print_member_statistics
-
+from badge_manager import BadgeManager
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
         self.training_tables = {}  # Für pro-Training Tabellen
         self.current_training_id = None
         self.current_result_row = None
+        self.bm = BadgeManager()
         self.setup_ui()
         self.load_all()
 
@@ -217,6 +218,86 @@ class MainWindow(QMainWindow):
             content_layout.setContentsMargins(4, 4, 4, 4)
 
             if results:
+                # === Teilnehmerliste erzeugen ===
+                teilnehmer = []
+                for r in results:
+                    teilnehmer.append({
+                        "vorname": r['vorname'],
+                        "nachname": r['nachname'],
+                        "rolle": r['rolle']
+                    })
+
+                # --- Duplikate entfernen (nach Vor- & Nachname) ---
+                unique = {(t["vorname"], t["nachname"], t["rolle"]) for t in teilnehmer}
+                teilnehmer = [{"vorname": v, "nachname": n, "rolle": r} for (v, n, r) in unique]
+
+                # --- Sortieren: zuerst alphabetisch, dann Gäste nach unten ---
+                teilnehmer.sort(key=lambda x: (x["rolle"].lower() == "gast", x["nachname"].lower(), x["vorname"].lower()))
+
+                # === Teilnehmerliste anzeigen ===
+                subheader = QLabel("Teilnehmerliste")
+                subheader.setStyleSheet("""
+                    font-weight: bold;
+                    margin: 0;
+                    margin-top: 10px;
+                    margin-bottom: 4px;
+                    padding: 2px 0;
+                """)
+                content_layout.addWidget(subheader)
+
+                table_tn = QTableWidget()
+                table_tn.setColumnCount(3)
+                table_tn.setHorizontalHeaderLabels(["#", "Vorname", "Nachname"])
+                table_tn.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+                table_tn.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+                table_tn.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+                table_tn.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+                table_tn.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+                table_tn.verticalHeader().setVisible(False)
+
+                table_tn.setRowCount(len(teilnehmer))
+                for i, t in enumerate(teilnehmer, start=1):
+                    item_nr = QTableWidgetItem(str(i))
+                    item_vor = QTableWidgetItem(t['vorname'])
+                    item_nach = QTableWidgetItem(t['nachname'])
+
+                    # Gäste kursiv & grau darstellen
+                    if t['rolle'] and t['rolle'].lower() == 'gast':
+                        guest_brush = QBrush(QColor("#888888"))
+                        for item in (item_vor, item_nach):
+                            item.setForeground(guest_brush)
+                            f = item.font()
+                            f.setItalic(True)
+                            item.setFont(f)
+
+                    table_tn.setItem(i-1, 0, item_nr)
+                    table_tn.setItem(i-1, 1, item_vor)
+                    table_tn.setItem(i-1, 2, item_nach)
+
+                # --- Tabelle optisch anpassen ---
+                table_tn.setStyleSheet("""
+                    QHeaderView::section {
+                        background-color: palette(dark);
+                        font-weight: bold;
+                        font-size: 13px;
+                        padding: 2px 0;
+                    }
+                    QTableView::item {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                    }
+                """)
+
+                # Höhe automatisch anpassen
+                table_height = table_tn.horizontalHeader().height()
+                for row in range(table_tn.rowCount()):
+                    table_height += table_tn.rowHeight(row)
+                table_tn.setFixedHeight(table_height)
+                table_tn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+                content_layout.addWidget(table_tn)
+
                 from collections import defaultdict
                 gruppen = defaultdict(list)
                 for r in results:
@@ -224,7 +305,8 @@ class MainWindow(QMainWindow):
                     gruppen[key].append(r)
 
                 for (kategorie, schussanzahl, anschlag), group in gruppen.items():
-                    subheader = QLabel(f"{kategorie} / {schussanzahl} Schuss" + (f" / {anschlag}" if anschlag else ""))
+
+                    subheader = QLabel(f"{kategorie}" +  (f" / {schussanzahl} Schuss" if schussanzahl != 0 else "") + (f" / {anschlag}" if anschlag else ""))
                     subheader.setStyleSheet("""
                         font-weight: bold;
                         margin: 0;
@@ -283,7 +365,13 @@ class MainWindow(QMainWindow):
 
                         table.setItem(i, 0, item_vor)
                         table.setItem(i, 1, item_nach)
-                        table.setItem(i, 2, QTableWidgetItem(str(r['gesamtpunktzahl'])))
+
+                        ergebnis = str(r['gesamtpunktzahl']).strip()
+
+                        if ergebnis in ("0", "0.0", "", "None", "null"):
+                            ergebnis = "k.A."
+
+                        table.setItem(i, 2, QTableWidgetItem(ergebnis))
 
                         # --- Button-Cell ---
                         btn_widget = QWidget()
@@ -389,6 +477,11 @@ class MainWindow(QMainWindow):
                     )
                     
             self.load_trainings()
+
+            """checkt badges"""
+            self.bm.update_all_badges(data['mitglied_id'])
+
+
             self.status.showMessage("Ergebnis hinzugefügt", 3000)
 
     def add_training(self):
@@ -441,18 +534,18 @@ class MainWindow(QMainWindow):
             self.status.showMessage('Training hinzugefügt', 3000)
 
     def edit_result_by_id(self, eid):
-        """Ergebnis bearbeiten."""
+        """Ergebnis bearbeiten und Badges für alte und neue Daten aktualisieren."""
         # Ergebnis-Daten abrufen
-        data = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
-        if not data:
+        old_data = query_db('SELECT * FROM ergebnisse WHERE ergebnis_id=?', (eid,), single=True)
+        if not old_data:
             QMessageBox.warning(self, "Fehler", "Das Ergebnis existiert nicht mehr.")
             self.load_trainings()
             return
 
-        tid = data['training_id']  # Training-ID aus dem Ergebnis
+        tid = old_data['training_id']
 
-        # Dialog zum Bearbeiten öffnen und tid übergeben
-        dlg = ResultDialog(self, tid=tid, data=data)
+        # Dialog zum Bearbeiten öffnen
+        dlg = ResultDialog(self, tid=tid, data=old_data)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             new_data = dlg.get_data()
 
@@ -480,6 +573,14 @@ class MainWindow(QMainWindow):
                 new_data['schussanzahl'], new_data['gesamtpunktzahl'], eid
             ))
 
+            # Badges aktualisieren:
+            # 1. Alte Daten: ggf. Badge-Level zurücksetzen / korrigieren
+            self.bm.update_all_badges(old_data['mitglied_id'])
+            # 2. Neue Daten: Fortschritt mit neuem Ergebnis prüfen
+            if new_data['mitglied_id'] != old_data['mitglied_id']:
+                # Wenn das Mitglied gewechselt hat, Badge auch für neuen Teilnehmer prüfen
+                self.bm.update_all_badges(new_data['mitglied_id'])
+
             self.load_trainings()
             self.status.showMessage("Ergebnis aktualisiert", 3000)
 
@@ -492,8 +593,20 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if confirm == QMessageBox.StandardButton.Yes:
+            
+            row = query_db(
+                "SELECT mitglied_id FROM ergebnisse WHERE ergebnis_id=?",
+                (eid,),
+                single=True
+            )
+            mitglied_id = row['mitglied_id'] if row else None
+
             query_db('DELETE FROM ergebnisse WHERE ergebnis_id=?', (eid,))
             self.load_trainings()
+
+            if mitglied_id:
+                self.bm.update_all_badges(mitglied_id)
+            
             self.status.showMessage("Ergebnis gelöscht", 3000)
 
     def delete_training_by_id(self, tid):
@@ -505,6 +618,12 @@ class MainWindow(QMainWindow):
         )
         if ok != QMessageBox.StandardButton.Yes:
             return
+        
+        mitglieder = query_db(
+            "SELECT DISTINCT mitglied_id FROM ergebnisse WHERE training_id=?",
+            (tid,)
+        )
+        mitglied_ids = [m['mitglied_id'] for m in mitglieder]
 
         query_db('DELETE FROM ergebnisse WHERE training_id=?', (tid,))
 
@@ -514,6 +633,10 @@ class MainWindow(QMainWindow):
 
         # Trainingsliste neu laden
         self.load_trainings()
+
+        for mid in mitglied_ids:
+            self.bm.update_all_badges(mid)
+
         self.status.showMessage('Training und alle zugehörigen Daten gelöscht', 3000)
 
     def print_training_by_id(self, tid):
@@ -617,7 +740,10 @@ class MainWindow(QMainWindow):
                 if (today.month(), today.day()) < (birthday.month(), birthday.day()):
                     age -= 1
                 display_text = birthday.toString('dd.MM.yyyy')
-                bday_item = QTableWidgetItem(display_text)
+                if not(today < birthday):
+                    bday_item = QTableWidgetItem(display_text + f" ({age})")
+                else:
+                    bday_item = QTableWidgetItem("-")
                 if age >= 18:
                     bday_item.setText(f"⚠ {display_text}")
                     bday_item.setForeground(QBrush(QColor("red")))
@@ -764,6 +890,8 @@ class MainWindow(QMainWindow):
         try:
             # --- Zuerst Ergebnisse löschen ---
             query_db("DELETE FROM ergebnisse WHERE mitglied_id=?", (mid,))
+
+            query_db("DELETE FROM badges_progress WHERE mitglied_id=?", (mid,))
 
             # --- Dann Mitglied löschen ---
             query_db("DELETE FROM mitglieder WHERE mitglieder_id=?", (mid,))
