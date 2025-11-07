@@ -57,6 +57,9 @@ jobs:
           }
           Write-Host "Using ISCC at $iscc"
 
+          # Ins Repo-Verzeichnis wechseln (relative Pfade zur ISS)
+          Set-Location $env:GITHUB_WORKSPACE
+
           # Installer bauen
           & $iscc "build_installer\SVM-Jugend.iss"
         shell: powershell
