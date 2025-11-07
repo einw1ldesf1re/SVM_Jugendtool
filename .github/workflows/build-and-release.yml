@@ -28,8 +28,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller requests
+          pip install pyinstaller
+          pip install PyQt6 requests reportlab matplotlib
         shell: powershell
 
       - name: Read version from docs/svm_version.json
@@ -43,6 +43,7 @@ jobs:
       - name: Build executable with PyInstaller
         run: |
           pyinstaller `
+            --noconfirm `
             --onefile `
             --windowed `
             --icon=assets/icons/icon_512x512.ico `
@@ -52,8 +53,10 @@ jobs:
             --hidden-import PyQt6.QtCore `
             --hidden-import PyQt6.QtGui `
             --hidden-import PyQt6.QtWidgets `
+            --collect-all PyQt6 `
             main.py
         shell: powershell
+
 
       - name: Install Inno Setup
         run: choco install innosetup -y
