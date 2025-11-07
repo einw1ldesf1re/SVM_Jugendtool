@@ -42,7 +42,17 @@ jobs:
 
       - name: Build executable with PyInstaller
         run: |
-          pyinstaller --onefile --windowed --icon=assets/icons/icon_512x512.ico --name SVM-Jugend --add-data "assets;assets" main.py
+          pyinstaller `
+            --onefile `
+            --windowed `
+            --icon=assets/icons/icon_512x512.ico `
+            --name SVM-Jugend `
+            --add-data "assets;assets" `
+            --hidden-import PyQt6 `
+            --hidden-import PyQt6.QtCore `
+            --hidden-import PyQt6.QtGui `
+            --hidden-import PyQt6.QtWidgets `
+            main.py
         shell: powershell
 
       - name: Install Inno Setup
