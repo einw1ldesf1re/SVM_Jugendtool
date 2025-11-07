@@ -46,7 +46,7 @@ jobs:
 
       - name: Build Installer with Inno Setup
         run: |
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build_installer\SVM-Jugend.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build_installer\SVM-Jugend.iss"
         shell: powershell
 
       - name: Upload Installer artifact
