@@ -55,19 +55,23 @@ jobs:
           if (-Not (Test-Path $iscc)) { Write-Error "ISCC.exe nicht gefunden!"; exit 1 }
           Write-Host "Using ISCC at $iscc"
 
-          # Pfade absolut bestimmen
-          $exePath = Join-Path $env:GITHUB_WORKSPACE "dist\SVM-Jugend.exe"
-          $iconPath = Join-Path $env:GITHUB_WORKSPACE "assets\icons\icon_512x512.ico"
-          $bannerPath = Join-Path $env:GITHUB_WORKSPACE "assets\installer_banner.bmp"
-          $smallPath = Join-Path $env:GITHUB_WORKSPACE "assets\installer_small.bmp"
-          $issPath = Join-Path $env:GITHUB_WORKSPACE "build_installer\SVM-Jugend.iss"
+          # Absolute Pfade
+          $repo = $env:GITHUB_WORKSPACE
+          $exePath = Join-Path $repo "dist\SVM-Jugend.exe"
+          $iconPath = Join-Path $repo "assets\icons\icon_512x512.ico"
+          $bannerPath = Join-Path $repo "assets\installer_banner.bmp"
+          $smallPath = Join-Path $repo "assets\installer_small.bmp"
+          $issPath = Join-Path $repo "SVM-Jugend.iss"
 
           # Prüfen ob alle Dateien existieren
           foreach ($f in $exePath,$iconPath,$bannerPath,$smallPath,$issPath) {
               if (-Not (Test-Path $f)) { Write-Error "Datei nicht gefunden: $f"; exit 1 }
           }
 
-          # Installer bauen mit Variablen
+          # Ins Repo-Verzeichnis wechseln
+          Set-Location $repo
+
+          # Installer bauen
           & $iscc `
             /DMyExePath="$exePath" `
             /DMyIconPath="$iconPath" `
