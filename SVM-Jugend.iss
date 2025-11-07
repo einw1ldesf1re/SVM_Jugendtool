@@ -7,12 +7,12 @@ OutputBaseFilename=SVM-Jugend-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=assets\icons\icon_512x512.ico
-WizardImageFile=assets\installer_banner.bmp
-WizardSmallImageFile=assets\installer_small.bmp
+SetupIconFile={#MyIconPath}
+WizardImageFile={#MyBannerPath}
+WizardSmallImageFile={#MySmallPath}
 
 [Files]
-Source: "dist\SVM-Jugend.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyExePath}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\*"; DestDir: "{app}\assets"; Flags: recursesubdirs ignoreversion
 Source: "version.json"; DestDir: "{app}"; Flags: ignoreversion
 
