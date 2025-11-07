@@ -1,9 +1,9 @@
-name: Build and Release (on push to main)
+name: Build and Release (only on main)
 
 on:
   push:
     branches:
-      - main
+      - main   # nur main
 
 permissions:
   contents: write
@@ -30,24 +30,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-        shell: bash
+        shell: powershell
 
       - name: Read version.json
         id: version
         run: |
-          python - <<'PY'
-import json, pathlib
-vfile = pathlib.Path('version.json')
-print('version file exists:', vfile.exists())
-data = json.loads(vfile.read_text(encoding='utf-8'))
-print('::set-output name=version::' + data['version'])
-PY
-        shell: bash
+          $v = Get-Content version.json | ConvertFrom-Json
+          Write-Host "VERSION=$($v.version)" >> $env:GITHUB_ENV
+        shell: powershell
 
       - name: Build executable with PyInstaller
         run: |
           pyinstaller --onefile --windowed --icon=assets/icons/icon_512x512.ico --name SVM-Jugend --add-data "assets;assets" main.py
-        shell: cmd
+        shell: powershell
 
       - name: Upload exe artifact
         uses: actions/upload-artifact@v4
