@@ -44,6 +44,10 @@ jobs:
           pyinstaller --onefile --windowed --icon=assets/icons/icon_512x512.ico --name SVM-Jugend --add-data "assets;assets" main.py
         shell: powershell
 
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+        shell: powershell
+
       - name: Build Installer with Inno Setup
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build_installer\SVM-Jugend.iss"
