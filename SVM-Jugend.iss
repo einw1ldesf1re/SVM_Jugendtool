@@ -22,3 +22,10 @@ Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilena
 
 [Run]
 Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; komplette DB-Datei löschen
+Type: files; Name: "{localappdata}\SVM-Jugend\training_manager.db"
+
+; optional: leeren Ordner löschen, falls keine Dateien mehr drin
+Type: dirifempty; Name: "{localappdata}\SVM-Jugend"

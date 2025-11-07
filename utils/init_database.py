@@ -2,14 +2,16 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 
-DB_FILE = Path("training_manager.db")
+# Pfad zur Datenbank im schreibbaren AppData-Verzeichnis
+APP_DATA = Path.home() / "AppData" / "Local" / "SVM-Jugend"
+APP_DATA.mkdir(parents=True, exist_ok=True)
+
+DB_FILE = APP_DATA / "training_manager.db"
 
 def init_database():
+    """Initialisiert die SQLite-Datenbank, legt Tabellen an, füllt Standardwerte und verwaltet DB-Version."""
 
-    if not DB_FILE.parent.exists():
-        DB_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    """Initialisiert die SQLite-Datenbank, legt Tabellen an und füllt Standardwerte."""
+    # Verbindung zur SQLite-Datenbank herstellen (erstellt Datei automatisch)
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -48,7 +50,6 @@ def init_database():
                 name TEXT NOT NULL
             )
         """)
-        # Standardwerte
         kategorien = ["Bogen", "Lichtgewehr", "Luftgewehr", "Luftpistole", "Blasrohr"]
         for idx, name in enumerate(kategorien, start=1):
             c.execute("INSERT OR IGNORE INTO kategorien (kategorie_id, name) VALUES (?, ?)", (idx, name))
