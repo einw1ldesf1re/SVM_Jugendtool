@@ -24,10 +24,10 @@ CURRENT_VERSION_FILE = BASE_DIR / "version.json"
 
 def get_current_version():
     try:
-        with open(CURRENT_VERSION_FILE, "r", encoding="utf-8") as f:
+        with open(CURRENT_VERSION_FILE, "r", encoding="utf-8-sig") as f:
             return json.load(f)["version"]
     except FileNotFoundError:
-        return "0.0.0"  # Fallback, falls version.json fehlt
+        return "0.0.0"
     
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
