@@ -5,7 +5,6 @@ import os
 import sys
 import json
 import subprocess
-
 from utils.logger import Logger
 
 logger = Logger()
@@ -13,11 +12,10 @@ logger = Logger()
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
 
+# Basis-Verzeichnis der laufenden EXE
 if getattr(sys, 'frozen', False):
-    # Läuft als exe → Pfad zur EXE
     BASE_DIR = pathlib.Path(sys.executable).parent
 else:
-    # Läuft als Skript → Pfad zum Projektroot
     BASE_DIR = pathlib.Path(__file__).parent.parent
 
 CURRENT_VERSION_FILE = BASE_DIR / "version.json"
@@ -28,7 +26,7 @@ def get_current_version():
             return json.load(f)["version"]
     except FileNotFoundError:
         return "0.0.0"
-    
+
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
 
@@ -82,7 +80,8 @@ def download_and_run_installer(url, auto_restart=False):
             param = f'--run-after-install="{current_exe}"'
             logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
 
-            # Subprocess mit neuem Fenster für Sichtbarkeit
+            # Alte Version sauber beenden
+            # subprocess.CREATE_NEW_CONSOLE sorgt für ein sichtbares Fenster des Installers
             subprocess.Popen(
                 f'"{installer_path}" {param}',
                 shell=True,
@@ -94,7 +93,6 @@ def download_and_run_installer(url, auto_restart=False):
 
         else:
             logger.info(f"[UPDATE] Starte Installer normal...")
-            # Manueller Start ohne Parameter, sichtbar
             os.startfile(installer_path)
 
     except Exception as e:

@@ -27,26 +27,48 @@ Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait
 [Code]
 var
   RunAfterInstall: string;
-  ErrorCode: Integer;
-  IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
 begin
+  // Prüfen, ob Parameter für Auto-Update übergeben wurde
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  IsAutoUpdate := RunAfterInstall <> '';
-
-  // Checkbox nur bei manueller Installation anzeigen
-  WizardForm.RunList.Visible := not IsAutoUpdate;
+  RunAfterInstall := Trim(RunAfterInstall);
 
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ErrorCode: Integer;
 begin
-  if (CurStep = ssPostInstall) and IsAutoUpdate then
+  // Automatischer Start der neuen EXE nach Auto-Update
+  if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
   begin
-    if FileExists(RunAfterInstall) then
-      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    { Kleine Pause, damit alte EXE sauber beendet wird }
+    Sleep(1000);
+
+    { Neue EXE starten }
+    ShellExec(
+      '',                // Default-Anwendung
+      RunAfterInstall,   // Pfad zur neuen EXE
+      '',                // Keine Parameter
+      '',                // Arbeitsverzeichnis
+      SW_SHOWNORMAL,
+      ewNoWait,          // Nicht warten
+      ErrorCode
+    );
+  end;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+
+  // Checkbox "Anwendung starten" nur bei manueller Installation anzeigen
+  if (PageID = wpReady) and (RunAfterInstall <> '') then
+  begin
+    // Auto-Update → Checkbox ausblenden
+    Result := True;
   end;
 end;
 
