@@ -12,12 +12,19 @@ logger = Logger()
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
 
-# Basis-Verzeichnis der laufenden EXE
+# Basis-Verzeichnis der laufenden EXE / Entwicklungsumgebung
 if getattr(sys, 'frozen', False):
+    # Bei gebündelter EXE (Installer)
     BASE_DIR = pathlib.Path(sys.executable).parent
 else:
+    # Bei Entwicklung (Python-Skripte)
     BASE_DIR = pathlib.Path(__file__).parent.parent
 
+# Sicherstellen, dass BASE_DIR im Modul-Suchpfad ist
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+# Pfad zur aktuellen Version
 CURRENT_VERSION_FILE = BASE_DIR / "version.json"
 
 def get_current_version():
