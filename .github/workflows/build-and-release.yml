@@ -46,7 +46,9 @@ jobs:
           $content = "{`"version`": `"$ver`"}"
 
           $outFile = "version.json"
-          Set-Content -Path $outFile -Value $content -Encoding utf8NoBOM -Force
+
+          # Out-File statt Set-Content
+          $content | Out-File -FilePath $outFile -Encoding utf8 -Force
 
           Write-Host "version.json erstellt im Root: $outFile"
           Get-Content $outFile
