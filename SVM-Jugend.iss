@@ -44,7 +44,7 @@ begin
     // Neue Version automatisch starten
     ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
   end;
-end
+end;
 
 [UninstallDelete]
 ; komplette DB-Datei löschen
