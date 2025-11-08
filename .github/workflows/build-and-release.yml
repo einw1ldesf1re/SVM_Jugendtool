@@ -43,8 +43,7 @@ jobs:
       - name: Create root version.json
         run: |
           $ver = (Get-Content docs/svm_version.json | ConvertFrom-Json).version
-          $url = "https://github.com/${{ github.repository }}/releases/latest/download/SVM-Jugend-Setup.exe"
-          $content = "{`"version`": `"$ver`", `"url`": `"$url`"}"
+          $content = "{`"version`": `"$ver`"}"
 
           $outFile = "version.json"
           Set-Content -Path $outFile -Value $content -Encoding UTF8 -Force
