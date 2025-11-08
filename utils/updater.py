@@ -15,9 +15,15 @@ CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
 
 def get_current_version():
-    with open(CURRENT_VERSION_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)["version"]
+    if getattr(sys, "frozen", False):
+        base_dir = pathlib.Path(sys._MEIPASS)
+    else:
+        base_dir = pathlib.Path(__file__).parent.parent
 
+    version_file = base_dir / "version.json"
+    with open(version_file, "r", encoding="utf-8-sig") as f:  # <-- utf-8-sig statt utf-8
+        return json.load(f)["version"]
+    
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
 

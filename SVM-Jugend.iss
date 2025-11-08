@@ -47,8 +47,11 @@ begin
 end;
 
 [UninstallDelete]
-; komplette DB-Datei löschen
-Type: files; Name: "{localappdata}\SVM-Jugend\training_manager.db"
+; Alles in AppData\Local\SVM-Jugend löschen
+Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
+
+; Alles in Program Files\SVM Jugend löschen (das Installationsverzeichnis)
+Type: filesandordirs; Name: "{app}"
 
 ; optional: leeren Ordner löschen, falls keine Dateien mehr drin
 Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
