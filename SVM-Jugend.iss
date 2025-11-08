@@ -32,10 +32,23 @@ var
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob der Parameter --run-after-install übergeben wurde
+  // Prüfen, ob es sich um Auto-Update handelt
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
   IsAutoUpdate := RunAfterInstall <> '';
+
+  // Checkbox nur sichtbar machen, wenn es keine Auto-Update Installation ist
+  if IsAutoUpdate and (WizardForm.RunList <> nil) then
+    WizardForm.RunList.Visible := False;
+
   Result := True;
+end;
+
+// Hilfsfunktion: Prozess beenden, falls er läuft
+procedure KillProcessIfRunning(const exeName: string);
+var
+  ResultCode: Integer;
+begin
+  Exec('taskkill', '/F /IM ' + exeName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -44,19 +57,32 @@ begin
   begin
     if IsAutoUpdate then
     begin
-      // Auto-Update: direkt neue Version starten, keine Checkbox
-      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+      // Vor dem Start prüfen, ob alte Version noch läuft
+      KillProcessIfRunning('SVM-Jugend.exe');
+
+      // Auto-Update: alle Dateien installiert, App sauber starten
+      if FileExists(RunAfterInstall) then
+        ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
+      else
+        MsgBox('Fehler: Die zu startende Datei wurde nicht gefunden: ' + RunAfterInstall, mbError, MB_OK);
     end
     else
     begin
-      // Manuelle Installation: Checkbox vorhanden → nur starten wenn angekreuzt
-      if WizardForm.RunList.Checked[0] then
+      // Manuelle Installation: nur starten, wenn Checkbox gesetzt ist
+      if (WizardForm.RunList <> nil) and (WizardForm.RunList.Count > 0) then
       begin
-        ShellExec('', ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+        if WizardForm.RunList.Checked[0] then
+        begin
+          if FileExists(ExpandConstant('{app}\SVM-Jugend.exe')) then
+            ShellExec('', ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
+          else
+            MsgBox('Fehler: Die zu startende Datei wurde nicht gefunden!', mbError, MB_OK);
+        end;
       end;
     end;
   end;
 end;
+
 
 [UninstallDelete]
 ; Alles in AppData\Local\SVM-Jugend löschen
