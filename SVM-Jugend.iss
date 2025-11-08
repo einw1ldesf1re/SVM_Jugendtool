@@ -25,31 +25,33 @@ Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
 Type: filesandordirs; Name: "{app}"
 Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 
+[Run]
+Filename: "{app}\SVM-Jugend.exe"; Flags: postinstall nowait
+
 [Code]
 var
-  ResultCode: Integer;
   IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob Parameter --run-after-install übergeben wurde
-  IsAutoUpdate := ExpandConstant('{param:run-after-install}') <> '';
+  IsAutoUpdate := ParamCount() > 0;
   Result := True;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  // RunList komplett verstecken, falls Auto-Update
   if IsAutoUpdate and (CurPageID = wpFinished) then
     WizardForm.RunList.Visible := False;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  ResultCode: Integer;
 begin
   Result := True;
-  if (CurPageID = wpFinished) and
-     ((not WizardForm.YesRadio.Visible) or (not WizardForm.YesRadio.Checked)) then
+  if CurPageID = wpFinished then
   begin
+    // Starte EXE aus Installationsordner, egal ob Auto-Update
     ExecAsOriginalUser(ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
 end;
