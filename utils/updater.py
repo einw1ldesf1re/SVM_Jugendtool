@@ -51,6 +51,13 @@ def check_for_update():
         logger.error(f"[UPDATE] Update-Check fehlgeschlagen: {e}")
 
 def download_and_run_installer(url, auto_restart=False):
+    """
+    Lädt den Installer herunter und startet ihn.
+
+    auto_restart=True  -> Auto-Update-Modus: Alte Version wird beendet,
+                          Installer bekommt Parameter, um neue Version automatisch zu starten.
+    auto_restart=False -> Manueller Start: Installer wird normal gestartet.
+    """
     temp_dir = pathlib.Path(tempfile.gettempdir())
     installer_path = temp_dir / "SVM-Jugend-Setup.exe"
 
@@ -69,25 +76,22 @@ def download_and_run_installer(url, auto_restart=False):
     # 2️⃣ Installer starten
     try:
         if auto_restart:
-            # Pfad zur laufenden exe als Parameter
             current_exe = pathlib.Path(sys.executable).resolve()
-            # Backslashes doppelt, damit Inno Setup es korrekt interpretiert
-            param = f'--run-after-install={str(current_exe).replace("\\", "\\\\")}'
+            param = f'--run-after-install="{current_exe}"'  # ✅ korrekt formatiert
             logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter: {param}")
 
             subprocess.Popen(
                 [str(installer_path), param],
-                shell=False,                  # shell=False ist sicherer
+                shell=False,
                 creationflags=subprocess.CREATE_NEW_CONSOLE,
                 cwd=temp_dir
             )
 
-            # Alte Version sofort beenden
+            # Alte Version sauber beenden
             sys.exit(0)
 
         else:
-            # Manueller Start ohne Parameter
-            logger.info(f"[UPDATE] Starte Installer normal...")
+            logger.info("[UPDATE] Starte Installer normal...")
             os.startfile(installer_path)
 
     except Exception as e:
