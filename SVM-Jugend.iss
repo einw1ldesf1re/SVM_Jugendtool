@@ -28,21 +28,33 @@ Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait
 var
   RunAfterInstall: string;
   ErrorCode: Integer;
+  IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
 begin
   // Prüfen, ob der Parameter --run-after-install übergeben wurde
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
+  IsAutoUpdate := RunAfterInstall <> '';
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
+  if CurStep = ssPostInstall then
   begin
-    // Nur wenn Parameter gesetzt ist → Auto-Update
-    // Neue Version automatisch starten
-    ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    if IsAutoUpdate then
+    begin
+      // Auto-Update: direkt neue Version starten, keine Checkbox
+      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    end
+    else
+    begin
+      // Manuelle Installation: Checkbox vorhanden → nur starten wenn angekreuzt
+      if WizardForm.RunList.Checked[0] then
+      begin
+        ShellExec('', ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+      end;
+    end;
   end;
 end;
 
