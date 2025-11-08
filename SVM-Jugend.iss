@@ -20,10 +20,6 @@ Source: "version.json"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 
-[Run]
-; Nur bei manueller Installation anzeigen
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
-
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
 Type: filesandordirs; Name: "{app}"
@@ -31,8 +27,8 @@ Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 
 [Code]
 var
-  RunAfterInstall: string;
-  ErrorCode: Integer;
+  ResultCode: Integer;
+  RunAfterInstall: String;
   IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
@@ -45,28 +41,23 @@ end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  // Wenn Auto-Update, Run-Checkbox ausblenden
+  // Wenn es ein Auto-Update ist, RunList komplett verstecken
   if IsAutoUpdate and (CurPageID = wpFinished) then
-  begin
     WizardForm.RunList.Visible := False;
-    WizardForm.RunListLabel.Visible := False;
-  end;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
+function NextButtonClick(CurPageID: Integer): Boolean;
 begin
-  // Automatisches Starten der alten Version nach Update
-  if (CurStep = ssPostInstall) and IsAutoUpdate then
+  Result := True;
+
+  // Nach Installation: Anwendung automatisch starten
+  // (nur, wenn kein Neustart angefordert ist)
+  if (CurPageID = wpFinished) and
+     ((not WizardForm.YesRadio.Visible) or (not WizardForm.YesRadio.Checked)) then
   begin
-    ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
+    if IsAutoUpdate then
+      ExecAsOriginalUser(RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ResultCode)
+    else
+      ExecAsOriginalUser(ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
-end;
-
-function ShouldSkipRunPage(PageID: Integer): Boolean;
-begin
-  // Fertigstellen-Seite überspringen, falls Auto-Update
-  if IsAutoUpdate and (PageID = wpFinished) then
-    Result := True
-  else
-    Result := False;
 end;
