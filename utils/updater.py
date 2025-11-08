@@ -11,9 +11,19 @@ import sys
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 
+# Basis-URL für die Installer-Datei
+INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
+
 def get_current_version():
     with open(CURRENT_VERSION_FILE, "r", encoding="utf-8") as f:
         return json.load(f)["version"]
+
+def build_installer_url(version):
+    """
+    Baut die Download-URL automatisch aus der Version:
+    z.B.: v1.0.1 -> .../v1.0.1/SVM-Jugend-Setup.exe
+    """
+    return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
 
 def check_for_update():
     try:
@@ -21,10 +31,13 @@ def check_for_update():
         r.raise_for_status()
         data = r.json()
         latest_version = data["version"]
-        installer_url = data["url"]
-        current = get_current_version()
 
+        # URL automatisch erstellen
+        installer_url = build_installer_url(latest_version)
+
+        current = get_current_version()
         print(f"[UPDATE] Aktuell: {current}, Online: {latest_version}")
+
         if latest_version != current:
             print("[UPDATE] Neue Version gefunden! Installer wird geladen...")
             download_and_run_installer(installer_url)
