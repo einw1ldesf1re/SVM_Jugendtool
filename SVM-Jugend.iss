@@ -24,28 +24,6 @@ Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilena
 ; Normaler Start nach Installation, nur wenn kein Auto-Update Parameter
 Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
 
-[Code]
-var
-  RunAfterInstall: string;
-  ErrorCode: Integer;
-
-function InitializeSetup(): Boolean;
-begin
-  // Prüfen, ob der Parameter --run-after-install übergeben wurde
-  RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  Result := True;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
-  begin
-    // Nur wenn Parameter gesetzt ist → Auto-Update
-    // Neue Version automatisch starten
-    ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
-  end;
-end
-
 [UninstallDelete]
 ; komplette DB-Datei löschen
 Type: files; Name: "{localappdata}\SVM-Jugend\training_manager.db"
