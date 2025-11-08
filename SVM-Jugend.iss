@@ -20,50 +20,30 @@ Source: "version.json"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 
-[Run]
-; Normaler Start nach Installation, nur wenn kein Auto-Update Parameter
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
+[UninstallDelete]
+Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
+Type: filesandordirs; Name: "{app}"
+Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 
 [Code]
 var
-  RunAfterInstall: string;
-  ErrorCode: Integer;
   IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob der Parameter --run-after-install übergeben wurde
-  RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  IsAutoUpdate := RunAfterInstall <> '';
+  IsAutoUpdate := ParamCount() > 0;
   Result := True;
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
+procedure CurPageChanged(CurPageID: Integer);
 begin
-  if CurStep = ssPostInstall then
-  begin
-    if IsAutoUpdate then
-    begin
-      // Auto-Update: direkt neue Version starten, keine Checkbox
-      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
-    end
-    else
-    begin
-      // Manuelle Installation: Checkbox vorhanden → nur starten wenn angekreuzt
-      if WizardForm.RunList.Checked[0] then
-      begin
-        ShellExec('', ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
-      end;
-    end;
-  end;
+  // RunList ausblenden, falls Auto-Update (optional)
+  if IsAutoUpdate and (CurPageID = wpFinished) then
+    WizardForm.RunList.Visible := False;
 end;
 
-[UninstallDelete]
-; Alles in AppData\Local\SVM-Jugend löschen
-Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
-
-; Alles in Program Files\SVM Jugend löschen (das Installationsverzeichnis)
-Type: filesandordirs; Name: "{app}"
-
-; optional: leeren Ordner löschen, falls keine Dateien mehr drin
-Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  // Kein Start der EXE – beim Klick auf "Fertig" schließt sich der Installer einfach
+end;

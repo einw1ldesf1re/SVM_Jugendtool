@@ -5,7 +5,6 @@ import os
 import sys
 import json
 import subprocess
-
 from utils.logger import Logger
 
 logger = Logger()
@@ -13,13 +12,19 @@ logger = Logger()
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
 
+# Basis-Verzeichnis der laufenden EXE / Entwicklungsumgebung
 if getattr(sys, 'frozen', False):
-    # Läuft als exe → Pfad zur EXE
+    # Bei gebündelter EXE (Installer)
     BASE_DIR = pathlib.Path(sys.executable).parent
 else:
-    # Läuft als Skript → Pfad zum Projektroot
+    # Bei Entwicklung (Python-Skripte)
     BASE_DIR = pathlib.Path(__file__).parent.parent
 
+# Sicherstellen, dass BASE_DIR im Modul-Suchpfad ist
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+# Pfad zur aktuellen Version
 CURRENT_VERSION_FILE = BASE_DIR / "version.json"
 
 def get_current_version():
@@ -28,7 +33,7 @@ def get_current_version():
             return json.load(f)["version"]
     except FileNotFoundError:
         return "0.0.0"
-    
+
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
 
@@ -55,13 +60,13 @@ def check_for_update():
 def download_and_run_installer(url, auto_restart=False):
     """
     Lädt den Installer herunter und startet ihn.
-    
+
     auto_restart=True  -> Auto-Update-Modus: Alte Version wird beendet,
-                          Installer bekommt Parameter, um neue Version automatisch zu starten.
-    auto_restart=False -> Manueller Start: Installer wird normal gestartet, kein Auto-Start.
+                          Installer bekommt Flag, um neue Version automatisch zu starten.
+    auto_restart=False -> Manueller Start: Installer wird normal gestartet.
     """
-    temp_dir = tempfile.gettempdir()
-    installer_path = pathlib.Path(temp_dir) / "SVM-Jugend-Setup.exe"
+    temp_dir = pathlib.Path(tempfile.gettempdir())
+    installer_path = temp_dir / "SVM-Jugend-Setup.exe"
 
     # 1️⃣ Installer herunterladen
     try:
@@ -78,23 +83,21 @@ def download_and_run_installer(url, auto_restart=False):
     # 2️⃣ Installer starten
     try:
         if auto_restart:
-            current_exe = sys.executable  # Pfad zur laufenden exe
-            param = f'--run-after-install="{current_exe}"'
-            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
+            # Beim Auto-Update nur Flag übergeben, nicht den Temp-Pfad!
+            param = '--auto-update'
+            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Flag: {param}")
 
-            # Subprocess mit neuem Fenster für Sichtbarkeit
             subprocess.Popen(
-                f'"{installer_path}" {param}',
-                shell=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                [str(installer_path), param],
+                shell=False,
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                cwd=temp_dir
             )
 
-            # Alte Version sofort beenden
+            # Alte Version sauber beenden
             sys.exit(0)
-
         else:
-            logger.info(f"[UPDATE] Starte Installer normal...")
-            # Manueller Start ohne Parameter, sichtbar
+            logger.info("[UPDATE] Starte Installer normal...")
             os.startfile(installer_path)
 
     except Exception as e:
