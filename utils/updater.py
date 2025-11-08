@@ -51,15 +51,8 @@ def check_for_update():
         logger.error(f"[UPDATE] Update-Check fehlgeschlagen: {e}")
 
 def download_and_run_installer(url, auto_restart=False):
-    """
-    Lädt den Installer herunter und startet ihn.
-    
-    auto_restart=True  -> Auto-Update-Modus: Alte Version wird beendet,
-                          Installer bekommt Parameter, um neue Version automatisch zu starten.
-    auto_restart=False -> Manueller Start: Installer wird normal gestartet, kein Auto-Start.
-    """
-    temp_dir = tempfile.gettempdir()
-    installer_path = pathlib.Path(temp_dir) / "SVM-Jugend-Setup.exe"
+    temp_dir = pathlib.Path(tempfile.gettempdir())
+    installer_path = temp_dir / "SVM-Jugend-Setup.exe"
 
     # 1️⃣ Installer herunterladen
     try:
@@ -76,22 +69,24 @@ def download_and_run_installer(url, auto_restart=False):
     # 2️⃣ Installer starten
     try:
         if auto_restart:
-            current_exe = sys.executable  # Pfad zur laufenden exe
-            param = f'--run-after-install="{current_exe}"'
-            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
+            # Pfad zur laufenden exe als Parameter
+            current_exe = pathlib.Path(sys.executable).resolve()
+            # Backslashes doppelt, damit Inno Setup es korrekt interpretiert
+            param = f'--run-after-install={str(current_exe).replace("\\", "\\\\")}'
+            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter: {param}")
 
-            # Alte Version sauber beenden
-            # subprocess.CREATE_NEW_CONSOLE sorgt für ein sichtbares Fenster des Installers
             subprocess.Popen(
-                f'"{installer_path}" {param}',
-                shell=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE
+                [str(installer_path), param],
+                shell=False,                  # shell=False ist sicherer
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                cwd=temp_dir
             )
 
             # Alte Version sofort beenden
             sys.exit(0)
 
         else:
+            # Manueller Start ohne Parameter
             logger.info(f"[UPDATE] Starte Installer normal...")
             os.startfile(installer_path)
 
