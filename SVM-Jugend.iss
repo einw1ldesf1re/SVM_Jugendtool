@@ -1,67 +1,66 @@
-;----------------------------------
-; SVM-Jugend Installer
-;----------------------------------
-
 [Setup]
-AppName=SVM-Jugend
-AppVersion={#MyAppVer}
-DefaultDirName={pf}\SVM Jugend
-DefaultGroupName=SVM-Jugend
-OutputDir=Output
+AppName=SVM Jugend
+AppVersion={#AppVer}
+DefaultDirName={autopf}\SVM Jugend
+DefaultGroupName=SVM Jugend
 OutputBaseFilename=SVM-Jugend-Setup
 Compression=lzma
 SolidCompression=yes
-AllowNoIcons=yes
-DisableDirPage=no
-DisableProgramGroupPage=no
-UninstallDisplayIcon={app}\SVM-Jugend.exe
-UninstallFilesDir={app}
-WizardImageFile=assets\installer_banner.bmp
-WizardSmallImageFile=assets\installer_small.bmp
-LicenseFile=LICENSE.txt
-
-[Languages]
-Name: "german"; MessagesFile: "compiler:Languages\German.isl"
+WizardStyle=modern
+SetupIconFile={#MyIconPath}
+WizardImageFile={#MyBannerPath}
+WizardSmallImageFile={#MySmallPath}
 
 [Files]
 Source: "{#MyExePath}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "docs\version.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\*"; DestDir: "{app}\assets"; Flags: recursesubdirs ignoreversion
+Source: "version.json"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\SVM-Jugend"; Filename: "{app}\SVM-Jugend.exe"
-Name: "{commondesktop}\SVM-Jugend"; Filename: "{app}\SVM-Jugend.exe"; Tasks: desktopicon
+Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
+Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 
-[Tasks]
-Name: "desktopicon"; Description: "Desktop-Icon erstellen"; GroupDescription: "Optionale Aufgaben:"
+[Run]
+; Normaler Start nach Installation, nur wenn kein Auto-Update Parameter
+Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Alles in AppData\Local\SVM-Jugend löschen
+Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
+
+; Alles in Program Files\SVM Jugend löschen (das Installationsverzeichnis)
+Type: filesandordirs; Name: "{app}"
+
+; optional: leeren Ordner löschen, falls keine Dateien mehr drin
+Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 
 [Code]
 var
-  AutoUpdate: Boolean;
   RunAfterInstall: string;
   ErrorCode: Integer;
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen ob der Parameter --run-after-install übergeben wurde
-  AutoUpdate := False;
+  // Prüfen, ob Parameter --run-after-install übergeben wurde
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  if RunAfterInstall <> '' then
-    AutoUpdate := True;
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if (CurStep = ssPostInstall) and (AutoUpdate) then
+  // Automatisches Starten der alten Version nach Update
+  if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
   begin
-    // Alte Version beenden
-    if FileExists(RunAfterInstall) then
-      Exec(RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
-
-    // Checkbox "Anwendung starten" wird nicht angezeigt bei Auto-Update
+    // Alte Version automatisch starten
+    ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
   end;
 end;
 
-[Run]
-; Checkbox nur anzeigen, wenn es keine Auto-Update-Installation ist
-Filename: "{app}\SVM-Jugend.exe"; Description: "{cm:LaunchProgram, SVM-Jugend}"; Flags: nowait postinstall skipifsilent; Check: not AutoUpdate
+function ShouldSkipRunPage(PageID: Integer): Boolean;
+begin
+  // Checkbox-Seite überspringen, wenn Auto-Update
+  if (RunAfterInstall <> '') and (PageID = wpFinished) then
+    Result := True
+  else
+    Result := False;
+end;
