@@ -37,49 +37,27 @@ begin
   IsAutoUpdate := RunAfterInstall <> '';
 
   // Checkbox nur sichtbar machen, wenn es keine Auto-Update Installation ist
-  if IsAutoUpdate and (WizardForm.RunList <> nil) then
-    WizardForm.RunList.Visible := False;
+  if IsAutoUpdate and Assigned(WizardForm) and Assigned(WizardForm.RunList) then
+  begin
+    WizardForm.RunList.Visible := False; // Liste ausblenden
+    WizardForm.RunList.Clear;            // Inhalte leeren, damit keine Count-Fehler
+  end;
 
   Result := True;
 end;
 
-// Hilfsfunktion: Prozess beenden, falls er läuft
-procedure KillProcessIfRunning(const exeName: string);
-var
-  ResultCode: Integer;
-begin
-  Exec('taskkill', '/F /IM ' + exeName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssPostInstall then
+  if (CurStep = ssPostInstall) and IsAutoUpdate then
   begin
-    if IsAutoUpdate then
-    begin
-      // Vor dem Start prüfen, ob alte Version noch läuft
-      KillProcessIfRunning('SVM-Jugend.exe');
+    // Alte App beenden, falls sie noch läuft
+    Exec('taskkill', '/F /IM SVM-Jugend.exe', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
 
-      // Auto-Update: alle Dateien installiert, App sauber starten
-      if FileExists(RunAfterInstall) then
-        ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
-      else
-        MsgBox('Fehler: Die zu startende Datei wurde nicht gefunden: ' + RunAfterInstall, mbError, MB_OK);
-    end
+    // Neue Version starten
+    if FileExists(RunAfterInstall) then
+      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
     else
-    begin
-      // Manuelle Installation: nur starten, wenn Checkbox gesetzt ist
-      if (WizardForm.RunList <> nil) and (WizardForm.RunList.Count > 0) then
-      begin
-        if WizardForm.RunList.Checked[0] then
-        begin
-          if FileExists(ExpandConstant('{app}\SVM-Jugend.exe')) then
-            ShellExec('', ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
-          else
-            MsgBox('Fehler: Die zu startende Datei wurde nicht gefunden!', mbError, MB_OK);
-        end;
-      end;
-    end;
+      MsgBox('Fehler: Datei zum Starten nicht gefunden: ' + RunAfterInstall, mbError, MB_OK);
   end;
 end;
 
