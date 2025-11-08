@@ -21,17 +21,17 @@ Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{ap
 Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 
 [Run]
-; Normaler Start nach Installation, nur wenn kein Auto-Update Parameter
+; Nur bei manueller Installation: Normaler Start nach Installation
 Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 ; Alles in AppData\Local\SVM-Jugend löschen
 Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
 
-; Alles in Program Files\SVM Jugend löschen (das Installationsverzeichnis)
+; Alles in Program Files\SVM Jugend löschen (Installationsverzeichnis)
 Type: filesandordirs; Name: "{app}"
 
-; optional: leeren Ordner löschen, falls keine Dateien mehr drin
+; Optional: leeren Ordner löschen, falls keine Dateien mehr drin
 Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 
 [Code]
@@ -48,17 +48,16 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  // Automatisches Starten der alten Version nach Update
+  // Automatisches Starten der alten Version nach Auto-Update
   if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
   begin
-    // Alte Version automatisch starten
     ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
   end;
 end;
 
+// Checkbox-Seite überspringen, wenn Auto-Update
 function ShouldSkipRunPage(PageID: Integer): Boolean;
 begin
-  // Checkbox-Seite überspringen, wenn Auto-Update
   if (RunAfterInstall <> '') and (PageID = wpFinished) then
     Result := True
   else
