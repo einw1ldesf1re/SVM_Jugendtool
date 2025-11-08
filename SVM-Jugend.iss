@@ -1,84 +1,67 @@
+;----------------------------------
+; SVM-Jugend Installer
+;----------------------------------
+
 [Setup]
-AppName=SVM Jugend
-AppVersion={#AppVer}
-DefaultDirName={autopf}\SVM Jugend
-DefaultGroupName=SVM Jugend
+AppName=SVM-Jugend
+AppVersion={#MyAppVer}
+DefaultDirName={pf}\SVM Jugend
+DefaultGroupName=SVM-Jugend
+OutputDir=Output
 OutputBaseFilename=SVM-Jugend-Setup
 Compression=lzma
 SolidCompression=yes
-WizardStyle=modern
-SetupIconFile={#MyIconPath}
-WizardImageFile={#MyBannerPath}
-WizardSmallImageFile={#MySmallPath}
+AllowNoIcons=yes
+DisableDirPage=no
+DisableProgramGroupPage=no
+UninstallDisplayIcon={app}\SVM-Jugend.exe
+UninstallFilesDir={app}
+WizardImageFile=assets\installer_banner.bmp
+WizardSmallImageFile=assets\installer_small.bmp
+LicenseFile=LICENSE.txt
+
+[Languages]
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Files]
 Source: "{#MyExePath}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\*"; DestDir: "{app}\assets"; Flags: recursesubdirs ignoreversion
-Source: "version.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "docs\version.json"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
-Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
+Name: "{group}\SVM-Jugend"; Filename: "{app}\SVM-Jugend.exe"
+Name: "{commondesktop}\SVM-Jugend"; Filename: "{app}\SVM-Jugend.exe"; Tasks: desktopicon
 
-[Run]
-; Normaler Start nach Installation, nur wenn kein Auto-Update Parameter
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
+[Tasks]
+Name: "desktopicon"; Description: "Desktop-Icon erstellen"; GroupDescription: "Optionale Aufgaben:"
 
 [Code]
 var
+  AutoUpdate: Boolean;
   RunAfterInstall: string;
+  ErrorCode: Integer;
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob Parameter für Auto-Update übergeben wurde
+  // Prüfen ob der Parameter --run-after-install übergeben wurde
+  AutoUpdate := False;
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  RunAfterInstall := Trim(RunAfterInstall);
-
+  if RunAfterInstall <> '' then
+    AutoUpdate := True;
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ErrorCode: Integer;
 begin
-  // Automatischer Start der neuen EXE nach Auto-Update
-  if (CurStep = ssPostInstall) and (RunAfterInstall <> '') then
+  if (CurStep = ssPostInstall) and (AutoUpdate) then
   begin
-    { Kleine Pause, damit alte EXE sauber beendet wird }
-    Sleep(1000);
+    // Alte Version beenden
+    if FileExists(RunAfterInstall) then
+      Exec(RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
 
-    { Neue EXE starten }
-    ShellExec(
-      '',                // Default-Anwendung
-      RunAfterInstall,   // Pfad zur neuen EXE
-      '',                // Keine Parameter
-      '',                // Arbeitsverzeichnis
-      SW_SHOWNORMAL,
-      ewNoWait,          // Nicht warten
-      ErrorCode
-    );
+    // Checkbox "Anwendung starten" wird nicht angezeigt bei Auto-Update
   end;
 end;
 
-function ShouldSkipPage(PageID: Integer): Boolean;
-begin
-  Result := False;
-
-  // Checkbox "Anwendung starten" nur bei manueller Installation anzeigen
-  if (PageID = wpReady) and (RunAfterInstall <> '') then
-  begin
-    // Auto-Update → Checkbox ausblenden
-    Result := True;
-  end;
-end;
-
-
-[UninstallDelete]
-; Alles in AppData\Local\SVM-Jugend löschen
-Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
-
-; Alles in Program Files\SVM Jugend löschen (das Installationsverzeichnis)
-Type: filesandordirs; Name: "{app}"
-
-; optional: leeren Ordner löschen, falls keine Dateien mehr drin
-Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
+[Run]
+; Checkbox nur anzeigen, wenn es keine Auto-Update-Installation ist
+Filename: "{app}\SVM-Jugend.exe"; Description: "{cm:LaunchProgram, SVM-Jugend}"; Flags: nowait postinstall skipifsilent; Check: not AutoUpdate
