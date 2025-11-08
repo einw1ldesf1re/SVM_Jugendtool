@@ -21,8 +21,8 @@ Name: "{group}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{ap
 Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilename: "{app}\assets\icons\icon_512x512.ico"
 
 [Run]
-; Checkbox nur für manuelle Installation
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
+; Nur bei manueller Installation anzeigen
+Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent check
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
@@ -43,26 +43,20 @@ begin
   Result := True;
 end;
 
-procedure InitializeWizard();
+function InitializeWizard(): Boolean;
 begin
-  // Auto-Update: Checkbox und Label auf Fertigstellen-Seite ausblenden
+  // Wenn Auto-Update → Run-Checkbox auf "Fertigstellen"-Seite ausblenden
   if IsAutoUpdate then
   begin
-    try
-      WizardForm.RunList.Visible := False;
-    except
-    end;
-
-    try
-      WizardForm.RunListLabel.Visible := False;
-    except
-    end;
+    WizardForm.RunList.Visible := False;
+    WizardForm.RunListLabel.Visible := False;  // <-- Diese Zeile ersetzt den fehlerhaften RUNLISTLABEL
   end;
+  Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  // Auto-Update: alte Version automatisch starten
+  // Automatisches Starten der alten Version nach Update
   if (CurStep = ssPostInstall) and IsAutoUpdate then
   begin
     ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
