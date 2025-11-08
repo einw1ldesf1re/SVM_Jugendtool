@@ -22,7 +22,7 @@ Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilena
 
 [Run]
 ; Nur bei manueller Installation anzeigen
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent check
+Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
@@ -43,15 +43,14 @@ begin
   Result := True;
 end;
 
-function InitializeWizard(): Boolean;
+procedure CurPageChanged(CurPageID: Integer);
 begin
-  // Wenn Auto-Update → Run-Checkbox auf "Fertigstellen"-Seite ausblenden
-  if IsAutoUpdate then
+  // Wenn Auto-Update, Run-Checkbox ausblenden
+  if IsAutoUpdate and (CurPageID = wpFinished) then
   begin
     WizardForm.RunList.Visible := False;
-    WizardForm.RunListLabel.Visible := False;  // <-- Diese Zeile ersetzt den fehlerhaften RUNLISTLABEL
+    WizardForm.RunListLabel.Visible := False;
   end;
-  Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
