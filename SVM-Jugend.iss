@@ -35,15 +35,8 @@ begin
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
   IsAutoUpdate := RunAfterInstall <> '';
 
-  if IsAutoUpdate then
-  begin
-    // Checkbox ausblenden, Liste nicht leeren
-    WizardForm.RunList.Visible := False;
-    // Alternativ: Items deaktivieren (falls nötig)
-    // var i: Integer;
-    // for i := 0 to WizardForm.RunList.Items.Count - 1 do
-    //   WizardForm.RunList.ItemEnabled[i] := False;
-  end;
+  // Checkbox nur bei manueller Installation anzeigen
+  WizardForm.RunList.Visible := not IsAutoUpdate;
 
   Result := True;
 end;
@@ -53,9 +46,7 @@ begin
   if (CurStep = ssPostInstall) and IsAutoUpdate then
   begin
     if FileExists(RunAfterInstall) then
-      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
-    else
-      MsgBox('Fehler: Datei zum Starten nicht gefunden: ' + RunAfterInstall, mbError, MB_OK);
+      ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
   end;
 end;
 
