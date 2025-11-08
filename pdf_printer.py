@@ -18,6 +18,9 @@ from db import query_db
 
 from badge_manager import BadgeManager
 
+styles = getSampleStyleSheet()
+style = styles["BodyText"]
+
 def print_member_list(parent=None, format="A4"):
     page_size = A5 if format.upper() == "A5" else A4
     page_width, page_height = page_size
@@ -97,12 +100,27 @@ def print_member_list(parent=None, format="A4"):
 
         alter_int = berechne_alter(geburtsdatum)
 
+        if alter_int < 0:
+            alter_text = "-"
+        elif alter_int < 18:
+            alter_text = f"<font color='darkgreen'>✓ {alter_int}</font>"
+        elif alter_int < 26:
+            alter_text = f"<font color='darkorange'>! {alter_int}</font>"
+        elif alter_int >= 26:
+            alter_text = f"<font color='darkred'>X {alter_int}</font>"
+        else:
+            alter_text = str(alter_int)
 
-        if(alter_int < 18):
-            if(alter_int > 0):
-                member_data.append([str(counter), m['vorname'], m['nachname'], geburtsdatum_str, alter_int])
-            else:
-                member_data.append([str(counter), m['vorname'], m['nachname'], "-", "-"])
+
+        if(alter_int < 26):
+            row = [
+                Paragraph(str(counter), style),
+                Paragraph(m['vorname'], style),
+                Paragraph(m['nachname'], style),
+                Paragraph(geburtsdatum_str, style),
+                Paragraph(alter_text, style),  # 👈 hier wird Farbe korrekt dargestellt
+            ]
+            member_data.append(row)
             counter+=1
 
     col_widths = [

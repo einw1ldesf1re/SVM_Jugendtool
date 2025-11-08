@@ -735,27 +735,51 @@ class MainWindow(QMainWindow):
             # --- Geburtstag + Alter ---
             birthday = QDate.fromString(r['geburtsdatum'], 'yyyy-MM-dd')
             today = QDate.currentDate()
+
             if birthday.isValid():
                 age = today.year() - birthday.year()
                 if (today.month(), today.day()) < (birthday.month(), birthday.day()):
                     age -= 1
+
                 display_text = birthday.toString('dd.MM.yyyy')
-                if not(today < birthday):
-                    bday_item = QTableWidgetItem(display_text + f" ({age})")
+
+                if not (today < birthday):
+                    # Standardfarbe
+                    color = "darkgreen"
+                    symbol = "✅"
+                    # Farbe je nach Alter
+                    if 18 <= age < 26:
+                        color = "orange"
+                        symbol = "⚠"
+                    elif age >= 26:
+                        color = "darkred"
+                        symbol = "⛔"
+
+                    # HTML mit farbigem Alter
+                    html_text = f"{display_text} | <span style='color:{color};'>{symbol} {age}</span>"
+
+                    # QLabel für HTML-Rendering
+                    label = QLabel()
+                    label.setTextFormat(Qt.TextFormat.RichText)
+                    label.setText(html_text)
+
+                    # Optional: kursiv und grau für Gäste
+                    if is_guest:
+                        label.setStyleSheet("color: #888888; font-style: italic;")
+
+                    # Platzhalter-Item (wird vom QLabel überdeckt)
+                    bday_item = QTableWidgetItem()
+                    self.member_table.setItem(row_pos, 3, bday_item)
+                    self.member_table.setCellWidget(row_pos, 3, label)
+
                 else:
                     bday_item = QTableWidgetItem("-")
-                if age >= 18:
-                    bday_item.setText(f"⚠ {display_text}")
-                    bday_item.setForeground(QBrush(QColor("red")))
+                    self.member_table.setItem(row_pos, 3, bday_item)
+
             else:
                 bday_item = QTableWidgetItem("–")
+                self.member_table.setItem(row_pos, 3, bday_item)
 
-            if is_guest:
-                font = bday_item.font()
-                font.setItalic(True)
-                bday_item.setFont(font)
-                bday_item.setForeground(QBrush(QColor("#888888")))
-            self.member_table.setItem(row_pos, 3, bday_item)
 
             # --- Rolle / Status ---
             role_text = r.get('rolle', 'Mitglied')
