@@ -11,18 +11,23 @@ from utils.logger import Logger
 logger = Logger()
 
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
-CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
 
-def get_current_version():
-    if getattr(sys, "frozen", False):
-        base_dir = pathlib.Path(sys._MEIPASS)
-    else:
-        base_dir = pathlib.Path(__file__).parent.parent
+if getattr(sys, 'frozen', False):
+    # Läuft als exe → Pfad zur EXE
+    BASE_DIR = pathlib.Path(sys.executable).parent
+else:
+    # Läuft als Skript → Pfad zum Projektroot
+    BASE_DIR = pathlib.Path(__file__).parent.parent
 
-    version_file = base_dir / "version.json"
-    with open(version_file, "r", encoding="utf-8-sig") as f:  # <-- utf-8-sig statt utf-8
-        return json.load(f)["version"]
+CURRENT_VERSION_FILE = BASE_DIR / "version.json"
+
+def get_current_version():
+    try:
+        with open(CURRENT_VERSION_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)["version"]
+    except FileNotFoundError:
+        return "0.0.0"  # Fallback, falls version.json fehlt
     
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
