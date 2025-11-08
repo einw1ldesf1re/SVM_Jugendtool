@@ -1,0 +1,138 @@
+name: Build and Release (only on main)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build exe and installer on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install PyQt6 requests reportlab matplotlib PyYAML
+        shell: powershell
+
+      - name: Read version from docs/svm_version.json
+        id: version
+        run: |
+          $vfile = "docs/svm_version.json"
+          $data = Get-Content $vfile | ConvertFrom-Json
+          Write-Host "VERSION=$($data.version)" >> $env:GITHUB_ENV
+        shell: powershell
+
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --onefile `
+            --windowed `
+            --icon=assets/icons/icon_512x512.ico `
+            --name SVM-Jugend `
+            --add-data "assets;assets" `
+            --hidden-import PyQt6 `
+            --hidden-import PyQt6.QtCore `
+            --hidden-import PyQt6.QtGui `
+            --hidden-import PyQt6.QtWidgets `
+            --collect-all PyQt6 `
+            main.py
+        shell: powershell
+
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+        shell: powershell
+
+      - name: Build Installer with Inno Setup
+        run: |
+          # ISCC.exe von Chocolatey
+          $iscc = "C:\ProgramData\chocolatey\bin\ISCC.exe"
+          if (-Not (Test-Path $iscc)) { Write-Error "ISCC.exe nicht gefunden!"; exit 1 }
+          Write-Host "Using ISCC at $iscc"
+
+          # Absolute Pfade
+          $repo = $env:GITHUB_WORKSPACE
+          $exePath = Join-Path $repo "dist\SVM-Jugend.exe"
+          $iconPath = Join-Path $repo "assets\icons\icon_512x512.ico"
+          $bannerPath = Join-Path $repo "assets\installer_banner.bmp"
+          $smallPath = Join-Path $repo "assets\installer_small.bmp"
+          $issPath = Join-Path $repo "SVM-Jugend.iss"
+
+          # Prüfen ob alle Dateien existieren
+          foreach ($f in $exePath,$iconPath,$bannerPath,$smallPath,$issPath) {
+              if (-Not (Test-Path $f)) { Write-Error "Datei nicht gefunden: $f"; exit 1 }
+          }
+
+          # Argumente vorbereiten
+          $args = @(
+              "/DMyExePath=$exePath",
+              "/DMyIconPath=$iconPath",
+              "/DMyBannerPath=$bannerPath",
+              "/DMySmallPath=$smallPath",
+              $issPath
+          )
+
+          # Ins Repo-Verzeichnis wechseln
+          Set-Location $repo
+
+          # Installer bauen
+          & $iscc @args
+        shell: powershell
+
+
+      - name: Upload Installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SVM-Jugend-Setup
+          path: Output/SVM-Jugend-Setup.exe
+
+  release:
+    name: Create Release from docs/svm_version.json
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SVM-Jugend-Setup
+          path: ./Output
+
+      - name: Read version from docs/svm_version.json
+        id: version2
+        run: |
+          VER=$(jq -r .version docs/svm_version.json)
+          echo "VER=$VER" >> $GITHUB_ENV
+
+      - name: Create Release with tag from docs/svm_version.json
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VER }}
+          name: v${{ env.VER }}
+          files: ./Output/SVM-Jugend-Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
