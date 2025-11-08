@@ -47,12 +47,9 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-
-  // Anwendung automatisch starten nach Installation
   if (CurPageID = wpFinished) and
      ((not WizardForm.YesRadio.Visible) or (not WizardForm.YesRadio.Checked)) then
   begin
-    // Immer die neue EXE im Installationsordner starten
     ExecAsOriginalUser(ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
 end;

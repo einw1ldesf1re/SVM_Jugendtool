@@ -62,7 +62,7 @@ def download_and_run_installer(url, auto_restart=False):
     Lädt den Installer herunter und startet ihn.
 
     auto_restart=True  -> Auto-Update-Modus: Alte Version wird beendet,
-                          Installer bekommt Parameter, um neue Version automatisch zu starten.
+                          Installer bekommt Flag, um neue Version automatisch zu starten.
     auto_restart=False -> Manueller Start: Installer wird normal gestartet.
     """
     temp_dir = pathlib.Path(tempfile.gettempdir())
@@ -83,9 +83,9 @@ def download_and_run_installer(url, auto_restart=False):
     # 2️⃣ Installer starten
     try:
         if auto_restart:
-            current_exe = pathlib.Path(sys.executable).resolve()
-            param = f'--run-after-install="{current_exe}"'  # ✅ korrekt formatiert
-            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter: {param}")
+            # Beim Auto-Update nur Flag übergeben, nicht den Temp-Pfad!
+            param = '--auto-update'
+            logger.info(f"[UPDATE] Starte Installer mit Auto-Update Flag: {param}")
 
             subprocess.Popen(
                 [str(installer_path), param],
@@ -96,7 +96,6 @@ def download_and_run_installer(url, auto_restart=False):
 
             # Alte Version sauber beenden
             sys.exit(0)
-
         else:
             logger.info("[UPDATE] Starte Installer normal...")
             os.startfile(installer_path)
