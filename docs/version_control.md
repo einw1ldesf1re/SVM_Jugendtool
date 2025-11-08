@@ -23,6 +23,8 @@
 
 ## [v1.0.1] - 2025-11-06
 ### Fixed
+- [] create Installer
+- [] Auto-Update
 - [x] Mitglieder ergebnisse nur Disziplin speichern ohne ergebniss für Anwesenheit
     - [x] Anzeige der Trainings im Programm abändern, dass die ohne ergebnisse separat angezeigt werden z.B.: in Teilnehmer training!
     - [x] Oben genanntes Problem auch in Training drucken als PDF beheben!
