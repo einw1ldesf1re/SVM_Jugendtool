@@ -62,6 +62,7 @@ jobs:
             --icon=assets/icons/icon_512x512.ico `
             --name SVM-Jugend `
             --add-data "assets;assets" `
+            --add-data "version.json;." `
             --hidden-import PyQt6 `
             --hidden-import PyQt6.QtCore `
             --hidden-import PyQt6.QtGui `
