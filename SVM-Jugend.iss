@@ -22,7 +22,7 @@ Name: "{commondesktop}\SVM Jugend"; Filename: "{app}\SVM-Jugend.exe"; IconFilena
 
 [Run]
 ; Checkbox nur für manuelle Installation
-Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent check
+Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait postinstall skipifsilent; Check: not IsAutoUpdateMode
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{localappdata}\SVM-Jugend"
@@ -37,34 +37,20 @@ var
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob Parameter --run-after-install übergeben wurde
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
   IsAutoUpdate := RunAfterInstall <> '';
   Result := True;
 end;
 
-function InitializeWizard(): Boolean;
+function IsAutoUpdateMode(): Boolean;
 begin
-  // Auto-Update: Checkbox auf Fertigstellen-Seite ausblenden
-  if IsAutoUpdate then
-    WizardForm.RunList.Visible := False;
-  Result := True;
+  Result := IsAutoUpdate;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  // Auto-Update: alte Version automatisch starten
   if (CurStep = ssPostInstall) and IsAutoUpdate then
   begin
     ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode);
   end;
-end;
-
-function ShouldSkipRunPage(PageID: Integer): Boolean;
-begin
-  // Fertigstellen-Seite überspringen, falls Auto-Update
-  if IsAutoUpdate and (PageID = wpFinished) then
-    Result := True
-  else
-    Result := False;
 end;
