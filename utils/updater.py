@@ -3,6 +3,7 @@ import pathlib
 import requests
 import os
 import sys
+import json
 import subprocess
 
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
@@ -39,13 +40,15 @@ def check_for_update():
 def download_and_run_installer(url, auto_restart=False):
     """
     Lädt den Installer herunter und startet ihn.
-    auto_restart=True -> Installer startet die neue Version automatisch nach Installation
-    auto_restart=False -> normaler Start ohne Parameter
+    
+    auto_restart=True  -> Auto-Update-Modus: Alte Version wird beendet,
+                          Installer bekommt Parameter, um neue Version automatisch zu starten.
+    auto_restart=False -> Manueller Start: Installer wird normal gestartet, kein Auto-Start.
     """
     temp_dir = tempfile.gettempdir()
     installer_path = pathlib.Path(temp_dir) / "SVM-Jugend-Setup.exe"
 
-    # 1. Installer herunterladen
+    # 1️⃣ Installer herunterladen
     try:
         with requests.get(url, stream=True, timeout=30) as r:
             r.raise_for_status()
@@ -57,19 +60,27 @@ def download_and_run_installer(url, auto_restart=False):
         print(f"[UPDATE] Fehler beim Herunterladen des Installers: {e}")
         return
 
-    # 2. Installer starten
+    # 2️⃣ Installer starten
     try:
         if auto_restart:
             current_exe = sys.executable  # Pfad zur laufenden exe
             param = f'--run-after-install="{current_exe}"'
             print(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
-            # Subprocess mit String, damit Fenster sichtbar wird
-            subprocess.Popen(f'"{installer_path}" {param}', shell=True)
+
+            # Subprocess mit neuem Fenster für Sichtbarkeit
+            subprocess.Popen(
+                f'"{installer_path}" {param}',
+                shell=True,
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+
             # Alte Version sofort beenden
             sys.exit(0)
+
         else:
             print(f"[UPDATE] Starte Installer normal...")
-            # Sichtbar starten ohne Parameter
+            # Manueller Start ohne Parameter, sichtbar
             os.startfile(installer_path)
+
     except Exception as e:
         print(f"[UPDATE] Fehler beim Starten des Installers: {e}")

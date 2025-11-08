@@ -89,11 +89,17 @@ jobs:
           $bannerPath = Join-Path $repo "assets\installer_banner.bmp"
           $smallPath = Join-Path $repo "assets\installer_small.bmp"
           $issPath = Join-Path $repo "SVM-Jugend.iss"
+          $versionFile = Join-Path $repo "docs/svm_version.json"
 
           # Prüfen ob alle Dateien existieren
-          foreach ($f in $exePath,$iconPath,$bannerPath,$smallPath,$issPath) {
+          foreach ($f in $exePath,$iconPath,$bannerPath,$smallPath,$issPath,$versionFile) {
               if (-Not (Test-Path $f)) { Write-Error "Datei nicht gefunden: $f"; exit 1 }
           }
+
+          # Version aus docs/svm_version.json auslesen
+          $versionJson = Get-Content $versionFile -Raw | ConvertFrom-Json
+          $appVer = $versionJson.version
+          Write-Host "AppVersion aus docs/svm_version.json: $appVer"
 
           # Argumente vorbereiten
           $args = @(
@@ -101,6 +107,7 @@ jobs:
               "/DMyIconPath=$iconPath",
               "/DMyBannerPath=$bannerPath",
               "/DMySmallPath=$smallPath",
+              "/DAppVer=$appVer",      # <-- AppVersion übergeben
               $issPath
           )
 
