@@ -8,7 +8,7 @@ import os
 import sys
 
 # URL zur Versionsinfo (raw auf main)
-UPDATE_INFO_URL = "di"
+UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 
 def get_current_version():
