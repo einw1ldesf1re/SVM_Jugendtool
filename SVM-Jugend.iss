@@ -27,6 +27,7 @@ Filename: "{app}\SVM-Jugend.exe"; Description: "Programm starten"; Flags: nowait
 [Code]
 var
   RunAfterInstall: string;
+  ErrorCode: Integer;
 
 function InitializeSetup(): Boolean;
 begin
