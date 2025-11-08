@@ -32,15 +32,17 @@ var
 
 function InitializeSetup(): Boolean;
 begin
-  // Prüfen, ob es sich um Auto-Update handelt
   RunAfterInstall := ExpandConstant('{param:run-after-install}');
   IsAutoUpdate := RunAfterInstall <> '';
 
-  // Checkbox nur sichtbar machen, wenn es keine Auto-Update Installation ist
-  if IsAutoUpdate and Assigned(WizardForm) and Assigned(WizardForm.RunList) then
+  if IsAutoUpdate then
   begin
-    WizardForm.RunList.Visible := False; // Liste ausblenden
-    WizardForm.RunList.Clear;            // Inhalte leeren, damit keine Count-Fehler
+    // Checkbox ausblenden, Liste nicht leeren
+    WizardForm.RunList.Visible := False;
+    // Alternativ: Items deaktivieren (falls nötig)
+    // var i: Integer;
+    // for i := 0 to WizardForm.RunList.Items.Count - 1 do
+    //   WizardForm.RunList.ItemEnabled[i] := False;
   end;
 
   Result := True;
@@ -50,10 +52,6 @@ procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if (CurStep = ssPostInstall) and IsAutoUpdate then
   begin
-    // Alte App beenden, falls sie noch läuft
-    Exec('taskkill', '/F /IM SVM-Jugend.exe', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode);
-
-    // Neue Version starten
     if FileExists(RunAfterInstall) then
       ShellExec('', RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ErrorCode)
     else
