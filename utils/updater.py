@@ -6,6 +6,8 @@ import sys
 import json
 import subprocess
 
+from utils.logger import Logger
+
 UPDATE_INFO_URL = "https://raw.githubusercontent.com/einw1ldesf1re/SVM_Jugendtool/refs/heads/main/docs/svm_version.json"
 CURRENT_VERSION_FILE = pathlib.Path(__file__).parent.parent / "version.json"
 INSTALLER_BASE_URL = "https://github.com/einw1ldesf1re/SVM_Jugendtool/releases/download"
@@ -25,17 +27,17 @@ def check_for_update():
         latest_version = data["version"]
 
         current = get_current_version()
-        print(f"[UPDATE] Aktuell: {current}, Online: {latest_version}")
+        Logger.info(f"[UPDATE] Aktuell: {current}, Online: {latest_version}")
 
         if latest_version != current:
-            print("[UPDATE] Neue Version gefunden! Installer wird geladen...")
+            Logger.info("[UPDATE] Neue Version gefunden! Installer wird geladen...")
             installer_url = build_installer_url(latest_version)
             download_and_run_installer(installer_url, auto_restart=True)
         else:
-            print("[UPDATE] Keine neue Version verfügbar.")
+            Logger.info("[UPDATE] Keine neue Version verfügbar.")
 
     except Exception as e:
-        print(f"[UPDATE] Update-Check fehlgeschlagen: {e}")
+        Logger.error(f"[UPDATE] Update-Check fehlgeschlagen: {e}")
 
 def download_and_run_installer(url, auto_restart=False):
     """
@@ -55,9 +57,9 @@ def download_and_run_installer(url, auto_restart=False):
             with open(installer_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
-        print(f"[UPDATE] Installer gespeichert: {installer_path}")
+        Logger.info(f"[UPDATE] Installer gespeichert: {installer_path}")
     except Exception as e:
-        print(f"[UPDATE] Fehler beim Herunterladen des Installers: {e}")
+        Logger.error(f"[UPDATE] Fehler beim Herunterladen des Installers: {e}")
         return
 
     # 2️⃣ Installer starten
@@ -65,7 +67,7 @@ def download_and_run_installer(url, auto_restart=False):
         if auto_restart:
             current_exe = sys.executable  # Pfad zur laufenden exe
             param = f'--run-after-install="{current_exe}"'
-            print(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
+            Logger.info(f"[UPDATE] Starte Installer mit Auto-Update Parameter...")
 
             # Subprocess mit neuem Fenster für Sichtbarkeit
             subprocess.Popen(
@@ -78,9 +80,9 @@ def download_and_run_installer(url, auto_restart=False):
             sys.exit(0)
 
         else:
-            print(f"[UPDATE] Starte Installer normal...")
+            Logger.info(f"[UPDATE] Starte Installer normal...")
             # Manueller Start ohne Parameter, sichtbar
             os.startfile(installer_path)
 
     except Exception as e:
-        print(f"[UPDATE] Fehler beim Starten des Installers: {e}")
+        Logger.error(f"[UPDATE] Fehler beim Starten des Installers: {e}")
