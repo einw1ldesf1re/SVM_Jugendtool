@@ -28,20 +28,18 @@ Type: dirifempty; Name: "{localappdata}\SVM-Jugend"
 [Code]
 var
   ResultCode: Integer;
-  RunAfterInstall: String;
   IsAutoUpdate: Boolean;
 
 function InitializeSetup(): Boolean;
 begin
   // Prüfen, ob Parameter --run-after-install übergeben wurde
-  RunAfterInstall := ExpandConstant('{param:run-after-install}');
-  IsAutoUpdate := RunAfterInstall <> '';
+  IsAutoUpdate := ExpandConstant('{param:run-after-install}') <> '';
   Result := True;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  // Wenn es ein Auto-Update ist, RunList komplett verstecken
+  // RunList komplett verstecken, falls Auto-Update
   if IsAutoUpdate and (CurPageID = wpFinished) then
     WizardForm.RunList.Visible := False;
 end;
@@ -50,14 +48,11 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
 
-  // Nach Installation: Anwendung automatisch starten
-  // (nur, wenn kein Neustart angefordert ist)
+  // Anwendung automatisch starten nach Installation
   if (CurPageID = wpFinished) and
      ((not WizardForm.YesRadio.Visible) or (not WizardForm.YesRadio.Checked)) then
   begin
-    if IsAutoUpdate then
-      ExecAsOriginalUser(RunAfterInstall, '', '', SW_SHOWNORMAL, ewNoWait, ResultCode)
-    else
-      ExecAsOriginalUser(ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+    // Immer die neue EXE im Installationsordner starten
+    ExecAsOriginalUser(ExpandConstant('{app}\SVM-Jugend.exe'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
 end;
