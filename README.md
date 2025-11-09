@@ -1,8 +1,8 @@
 # 🧩 SVM-Trainingstool
 
-![Build](https://img.shields.io/github/actions/workflow/status/einw1ldesf1re/SVM_Jugendtool/build-and-release.yml?branch=main&label=Build&style=flat-square)
-![Version](https://img.shields.io/github/v/release/einw1ldesf1re/SVM_Jugendtool?style=flat-square)
-![License](https://img.shields.io/badge/license-Proprietary-lightgrey?style=flat-square)
+![Build](https://img.shields.io/github/actions/workflow/status/einw1ldesf1re/SVM_Jugendtool/build-and-release.yml?branch=main&label=Build&style=flat)
+![Version](https://img.shields.io/github/v/release/einw1ldesf1re/SVM_Jugendtool?style=flat)
+![License](https://img.shields.io/badge/license-Proprietary-lightgrey?style=flat)
 
 Ein Desktop-Tool zur **Verwaltung und Auswertung von Schießtrainingsdaten** sowie zur **Mitgliederverwaltung** im Verein.
 
@@ -28,7 +28,7 @@ Der Build-Prozess ist automatisiert über **GitHub Actions**, sodass bei jedem P
 ## 📄 Versionierung
 
 Das Projekt nutzt eine klare Versionskontrolle mit dokumentierten Änderungen.  
-👉 Siehe: [Version Control Übersicht](docs/version_control.md)
+Siehe: [Version Control Übersicht](docs/version_control.md)
 
 ## 📜 Lizenz
 
