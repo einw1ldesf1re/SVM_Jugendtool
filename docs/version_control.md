@@ -9,20 +9,12 @@
 ## Bekannte Fehler
 - keine
 
-<!-- ## [v1.1.0] - 2025-10-20
-### 🆕 Added
-- Druckfunktion für Mitgliederstatistik (PDF)
-- Fortschrittsanzeige für Trainingsfortschritt
+## [v1.0.3] - in progress
+- [] Readme.md hinzugefügt und beschrieben
 
-### 🔧 Changed
-- Interne Datenbankabfragen optimiert
-- Tabellen-Styling überarbeitet
-
-### 🐛 Fixed
-- Fehler bei Geburtsdatumsanzeige korrigiert -->
 
 ## [v1.0.2] - 2025-11-08
-### Added
+### Changed
 - [x] Als Benutzer möchte ich im Programm in orange sehen wer ü18 ist
 - [x] Als Benutzer möchte ich im Programm in rot sehen wer ü26 ist
 - [x] Als Benutzer möchte ich im Programm in grün sehen wer u18 ist
