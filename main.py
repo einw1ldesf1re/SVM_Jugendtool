@@ -8,14 +8,15 @@ from utils.updater import check_for_update
 from utils.init_database import init_database
 
 def main():
-
-    check_for_update()
-
-    db_path = init_database()
-
     # init_db()
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon("assets/icons/icon_512x512.ico"))
+
+    
+    check_for_update()
+    db_path = init_database()
+
+
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

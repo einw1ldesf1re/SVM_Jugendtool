@@ -25,17 +25,18 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 ## Versionen & Änderungen
 
 ### ![v1.0.3](https://img.shields.io/badge/v1.0.3-in_progress-blue?style=flat-round)
-
-#### ![Added](https://img.shields.io/badge/Added-gray?style=for-the-badge)
+#### Added
 - [x] **README.md** hinzugefügt und beschrieben
+- [x] Benutzer bekommt Popup bevor autoupdate startet
+- [] Installierte version wird im main window unten rechts angezeigt
 
-#### ![Changed](https://img.shields.io/badge/Changed-gray?style=for-the-badge)
+#### Changed
 - [x] **version_control.md** optisch verbessert
 
 ---
 
 ### ![v1.0.2](https://img.shields.io/badge/v1.0.2-2025--11--08-green?style=flat-round) 
-#### ![Changed](https://img.shields.io/badge/Changed-gray?style=for-the-badge)
+#### Changed
 - [x] Benutzer sieht Mitglieder **über 18 Jahre in Orange**
 - [x] Benutzer sieht Mitglieder **über 26 Jahre in Rot**
 - [x] Benutzer sieht Mitglieder **unter 18 Jahre in Grün**
@@ -45,11 +46,11 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 ---
 
 ### ![v1.0.1](https://img.shields.io/badge/v1.0.1-2025--11--06-gray?style=flat-round) 
-#### ![Added](https://img.shields.io/badge/Added-gray?style=for-the-badge)
+#### Added
 - [x] **Installer** erstellt  
 - [x] **Auto-Update** integriert  
 
-#### ![Fixed](https://img.shields.io/badge/Fixed-gray?style=for-the-badge)
+#### Fixed
 - [x] Mitglieder-Ergebnisse speichern nur noch Disziplin (bei Anwesenheit ohne Ergebnis)  
   - [x] Anzeige solcher Trainings im Programm angepasst („Teilnehmer Training“)  
   - [x] Fehler auch im PDF-Export behoben  
@@ -58,7 +59,7 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 ---
 
 ### ![v1.0.0](https://img.shields.io/badge/v1.0.0-2025--10--28-gray?style=flat-round)  
-#### ![Initial Release](https://img.shields.io/badge/Initial--Release-gray?style=for-the-badge)
+#### Initial Release
 - [x] Erste stabile Version mit:
   - [x] Mitgliederverwaltung  
   - [x] Trainingsverwaltung  
