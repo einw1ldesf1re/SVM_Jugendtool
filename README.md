@@ -1,6 +1,6 @@
 # 🧩 SVM-Trainingstool
 
-![Build](https://img.shields.io/github/actions/workflow/status/einw1ldesf1re/SVM-Jugendtool/build.yml?branch=main&label=Build&style=flat-square)
+![Build](https://img.shields.io/github/actions/workflow/status/einw1ldesf1re/SVM-Jugendtool/build-and-release.yml?branch=main&label=Build&style=flat-square)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/license-Proprietary-lightgrey?style=flat-square)
 
