@@ -1,41 +1,66 @@
-# TODO / Roadmap
+# 🗺️ TODO & Roadmap
 
-## In Arbeit
-- keine
+![Last_Update](https://img.shields.io/github/release-date/einw1ldesf1re/SVM_Jugendtool?style=for-the-badge)
 
-## Geplant
-- keine
+Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und behobene Probleme des **SVM-Trainingstools**.
 
-## Bekannte Fehler
-- keine
+---
 
-## [v1.0.3] - in progress
-- [] Readme.md hinzugefügt und beschrieben
+## 🚧 In Arbeit
+> Derzeit in Entwicklung
+- *(keine aktiven Aufgaben)*
 
+---
 
-## [v1.0.2] - 2025-11-08
-### Changed
-- [x] Als Benutzer möchte ich im Programm in orange sehen wer ü18 ist
-- [x] Als Benutzer möchte ich im Programm in rot sehen wer ü26 ist
-- [x] Als Benutzer möchte ich im Programm in grün sehen wer u18 ist
-- [x] Als Benutzer möchte ich nur mitglieder unter 26 in der pdf angezeigt bekommen
-- [x] Als Benutzer möchte ich die ü18 in einer anderen farbe haben als die u18
+## 🧩 Geplant
+> Ideen und Features für zukünftige Versionen
+- *(keine geplanten Erweiterungen)*
 
-## [v1.0.1] - 2025-11-06
-### Added
-- [x] create Installer
-- [x] Auto-Update
+---
 
-### Fixed
-- [x] Mitglieder ergebnisse nur Disziplin speichern ohne ergebnis für Anwesenheit
-  - [x] Anzeige der Trainings im Programm abändern, dass die ohne ergebnisse separat angezeigt werden z.B.: in Teilnehmer training!
-  - [x] Oben genanntes Problem auch in Training drucken als PDF beheben!
-  - [x] Wenn kein ergebnis angegeben ist, wird es nicht in die gesammtbewertung für die badges und die diagramme aufgenommen
+## 🐞 Bekannte Fehler
+> Aktuell bekannte, noch nicht behobene Probleme
+- *(keine offenen Fehler)*
 
-## [v1.0.0] - 2025-10-28
-### Initial Release
+---
+
+## 🆕 Versionen & Änderungen
+
+### ![v1.0.3](https://img.shields.io/badge/v1.0.3-in_progress-blue?style=flat-round) – *in progress* ⚙️
+#### Added
+- [x] **README.md** hinzugefügt und beschrieben
+
+---
+
+### ![v1.0.2](https://img.shields.io/badge/v1.0.2-2025--11--08-green?style=flat-round) 
+#### Changed
+- [x] Benutzer sieht Mitglieder **über 18 Jahre in Orange**
+- [x] Benutzer sieht Mitglieder **über 26 Jahre in Rot**
+- [x] Benutzer sieht Mitglieder **unter 18 Jahre in Grün**
+- [x] PDF-Ausgabe zeigt nur **Mitglieder unter 26 Jahren**
+- [x] Farblogik für Altersgruppen überarbeitet (Ü18 ≠ U18)
+
+---
+
+### ![v1.0.1](https://img.shields.io/badge/v1.0.1-2025--11--06-gray?style=flat-round) 
+#### Added
+- [x] **Installer** erstellt  
+- [x] **Auto-Update** integriert  
+
+#### Fixed
+- [x] Mitglieder-Ergebnisse speichern nur noch Disziplin (bei Anwesenheit ohne Ergebnis)  
+  - [x] Anzeige solcher Trainings im Programm angepasst („Teilnehmer Training“)  
+  - [x] Fehler auch im PDF-Export behoben  
+  - [x] Ergebnisse ohne Wert werden nicht mehr in **Gesamtbewertung, Badges und Diagrammen** berücksichtigt  
+
+---
+
+### ![v1.0.0](https://img.shields.io/badge/v1.0.0-2025--10--28-gray?style=flat-round)  
+#### Initial Release
 - [x] Erste stabile Version mit:
-  - [x] Mitgliederverwaltung
-  - [x] Trainingsverwaltung
-  - [x] Statistik-Export
-  - [x] Badge-System
+  - [x] Mitgliederverwaltung  
+  - [x] Trainingsverwaltung  
+  - [x] Statistik-Export  
+  - [x] Badge-System  
+
+---
