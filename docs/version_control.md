@@ -26,6 +26,8 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 
 ### ![v1.0.4](https://img.shields.io/badge/v1.0.4-in_progress-blue?style=flat-round)
 
+---
+
 ### ![v1.0.3](https://img.shields.io/badge/v1.0.3-2025--11-10-green?style=flat-round)
 #### Added
 - [x] **README.md** hinzugefügt und beschrieben
