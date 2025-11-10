@@ -28,7 +28,7 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 #### Added
 - [x] **README.md** hinzugefügt und beschrieben
 - [x] Benutzer bekommt Popup bevor autoupdate startet
-- [] Installierte version wird im main window unten rechts angezeigt
+- [x] Installierte version wird im main window unten rechts angezeigt
 
 #### Changed
 - [x] **version_control.md** optisch verbessert

@@ -10,6 +10,7 @@ from functools import partial
 
 from pdf_printer import print_training_results, print_member_list, print_member_statistics
 from badge_manager import BadgeManager
+from utils.updater import get_current_version
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -97,6 +98,29 @@ class MainWindow(QMainWindow):
         self.add_member_btn.clicked.connect(self.add_member)
         self.tabs.addTab(self.members_tab, 'Mitglieder')
         self.status = self.statusBar()
+
+        self.status = self.statusBar()
+        self.status.setStyleSheet("QStatusBar::item { border: none; }")
+
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 2, 0)
+        layout.setSpacing(0)
+        layout.addStretch()
+
+        version = get_current_version()
+
+        version_label = QLabel(f"v{version}")
+        version_label.setStyleSheet("""
+            QLabel {
+                color: gray;
+                font-size: 11px;
+            }
+        """)
+        layout.addWidget(version_label)
+
+        # wichtig: addPermanentWidget verwenden, sonst verschwindet es bei showMessage()
+        self.status.addPermanentWidget(container)
 
     # -------------------- Trainings --------------------
     def load_trainings(self):
