@@ -76,13 +76,14 @@ def print_member_list(parent=None, format="A4"):
         return alter
 
     # 👥 Mitglieder aus DB laden
-    members = query_db("SELECT vorname, nachname, geburtsdatum, rolle FROM mitglieder ORDER BY nachname")
-    member_data = [["ID", "Vorname", "Nachname", "Geburtsdatum", "Alter"]]
+    members = query_db("SELECT vorname, nachname, geburtsdatum, geschlecht, rolle, eintrittsdatum FROM mitglieder ORDER BY nachname")
+    member_data = [["ID", "Vorname", "Nachname", "Geschlecht", "Geburtsdatum", "Alter", "Eintrittsdatum"]]
 
     counter = 1;
 
     for idx, m in enumerate(members, start=1):
         geburtsdatum = m['geburtsdatum']
+        eintrittsdatum = m['eintrittsdatum']
 
         if(m['rolle'] == "gast"):
             continue
@@ -99,6 +100,16 @@ def print_member_list(parent=None, format="A4"):
             geburtsdatum_str = str(geburtsdatum)
 
         alter_int = berechne_alter(geburtsdatum)
+
+        if isinstance(eintrittsdatum, (datetime,)):
+            eintrittsdatum_str = eintrittsdatum.strftime("%d.%m.%Y")
+        elif isinstance(eintrittsdatum, str):
+            try:
+                eintrittsdatum_str = datetime.strptime(eintrittsdatum, "%Y-%m-%d").strftime("%d.%m.%Y")
+            except ValueError:
+                eintrittsdatum_str = eintrittsdatum  # falls schon formatiert
+        else:
+            eintrittsdatum_str = str(eintrittsdatum)
 
         if alter_int < 0:
             alter_text = "-"
@@ -117,8 +128,10 @@ def print_member_list(parent=None, format="A4"):
                 Paragraph(str(counter), style),
                 Paragraph(m['vorname'], style),
                 Paragraph(m['nachname'], style),
+                Paragraph(m['geschlecht'], style),
                 Paragraph(geburtsdatum_str, style),
                 Paragraph(alter_text, style),  # 👈 hier wird Farbe korrekt dargestellt
+                Paragraph(eintrittsdatum_str, style)
             ]
             member_data.append(row)
             counter+=1
@@ -127,8 +140,10 @@ def print_member_list(parent=None, format="A4"):
         usable_width * 0.08,  # ID schmal
         usable_width * 0.25,  # Vorname
         usable_width * 0.25,  # Nachname
-        usable_width * 0.25,  # Geburtsdatum
-        usable_width * 0.17,  # Alter
+        usable_width * 0.1,  # Geschlecht
+        usable_width * 0.13,  # Geburtsdatum
+        usable_width * 0.09,  # Alter
+        usable_width * 0.13,  # Eintrittsdatum
     ]
     member_table = Table(member_data, colWidths=col_widths, repeatRows=1)
     member_table.setStyle(TableStyle([
