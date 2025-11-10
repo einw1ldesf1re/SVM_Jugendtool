@@ -897,8 +897,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() == dlg.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum, rolle) VALUES (?, ?, ?, ?)',
-                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'])
+                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum, geschlecht, rolle, eintrittsdatum) VALUES (?, ?, ?, ?,? , ?)',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['geschlecht'], data['rolle'], data['eintrittsdatum'])
             )
             self.load_members()
             self.status.showMessage("Mitglied hinzugefügt", 3000)
@@ -915,8 +915,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=?, rolle=? WHERE mitglieder_id=?',
-                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'], mid)
+                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=?, geschlecht=?, rolle=?, eintrittsdatum=? WHERE mitglieder_id=?',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['geschlecht'], data['rolle'], data['eintrittsdatum'], mid)
             )
             self.load_members()
             self.status.showMessage("Mitglied aktualisiert", 3000)

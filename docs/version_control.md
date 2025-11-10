@@ -28,7 +28,14 @@ Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und beho
 #### Added
 - [x] **README.md** hinzugefügt und beschrieben
 - [x] Benutzer bekommt Popup bevor autoupdate startet
-- [x] Installierte version wird im main window unten rechts angezeigt
+- [x] Installierte version wird im main_window unten rechts angezeigt
+- [] Geschlecht wird mit in der Datenbank gespeichert
+  - [] Memberdialog wurder überarbeitet, dass man das geschlächt auswählen kann (Weiblich, Männlich, Divers)
+  - [] datenbank anpassung in **init_database.py**
+- [] Eintrittsdatum der Mitglieder wird gespeichert
+  - [] Memberdialog wurde überarbeitet, dass datum angezeigt wird, wenn Rolle mitglied ausgewählt ist!
+  - [] Vorgeschlagenes datum ist immer der "01.01.aktuelles Jahr"
+  - [] datenbank anpassung in **init_database.py**
 
 #### Changed
 - [x] **version_control.md** optisch verbessert

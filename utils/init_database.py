@@ -2,11 +2,18 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 
+from utils.logger import Logger
+from utils.updater import get_current_version
+
 # Pfad zur Datenbank im schreibbaren AppData-Verzeichnis
 APP_DATA = Path.home() / "AppData" / "Local" / "SVM-Jugend"
 APP_DATA.mkdir(parents=True, exist_ok=True)
 
 DB_FILE = APP_DATA / "training_manager.db"
+
+NEWEST_DATABESE_VERSION = 2
+
+logger = Logger()
 
 def init_database():
     """Initialisiert die SQLite-Datenbank, legt Tabellen an, füllt Standardwerte und verwaltet DB-Version."""
@@ -61,7 +68,9 @@ def init_database():
                 vorname TEXT,
                 nachname TEXT,
                 geburtsdatum DATE,
-                rolle TEXT
+                geschlecht TEXT,
+                rolle TEXT,
+                eintrittsdatum DATE
             )
         """)
 
@@ -109,11 +118,38 @@ def init_database():
             )
         """)
 
-        # DB-Version auf 1 setzen
-        db_version = 1
-        c.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('db_version', ?)", (db_version,))
+        c.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('db_version', ?)", (NEWEST_DATABESE_VERSION,))
+        logger.info("[DATABASE] Standard Datenbank wurde erstellt (v2)")
+    elif (db_version == 1):
+        # 1. Alte Tabelle umbenennen
+        c.execute("ALTER TABLE mitglieder RENAME TO mitglieder_alt")
 
+        # 2. Neue Tabelle mit gewünschter Reihenfolge anlegen
+        c.execute("""
+            CREATE TABLE mitglieder (
+                mitglieder_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vorname TEXT,
+                nachname TEXT,
+                geburtsdatum DATE,
+                geschlecht TEXT,
+                rolle TEXT,
+                eintrittsdatum DATE
+            )
+        """)
+
+        # 3. Daten aus alter Tabelle übernehmen
+        c.execute("""
+            INSERT INTO mitglieder (mitglieder_id, vorname, nachname, geburtsdatum, rolle)
+            SELECT mitglieder_id, vorname, nachname, geburtsdatum, rolle
+            FROM mitglieder_alt
+        """)
+
+        # 4. Alte Tabelle löschen
+        c.execute("DROP TABLE mitglieder_alt")
+        c.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('db_version', ?)", (NEWEST_DATABESE_VERSION,))
+        logger.info(f"[DATABASE] Datenbank wurde geupdatet (v1 -> v{NEWEST_DATABESE_VERSION})")
+    else:
+        logger.info(f"[DATABASE] '{DB_FILE}' initialisiert, Version: {NEWEST_DATABESE_VERSION}")
     conn.commit()
     conn.close()
-    print(f"[DB] '{DB_FILE}' initialisiert, Version: {db_version}")
     return DB_FILE
