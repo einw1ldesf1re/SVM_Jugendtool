@@ -5,6 +5,8 @@ import os
 import sys
 import json
 import subprocess
+
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from utils.logger import Logger
 
 logger = Logger()
@@ -37,6 +39,29 @@ def get_current_version():
 def build_installer_url(version):
     return f"{INSTALLER_BASE_URL}/v{version}/SVM-Jugend-Setup.exe"
 
+def show_update_popup(current, latest):
+    app = QApplication.instance()  # EXISTIERENDE App holen
+    if not app:
+        raise RuntimeError("Es muss schon eine QApplication existieren!")
+
+    msg_box = QMessageBox()
+    msg_box.setIcon(QMessageBox.Icon.Information)
+    msg_box.setWindowTitle("Update verfügbar")
+    msg_box.setText(
+        f"Es ist eine neue Version verfügbar!\n\n"
+        f"Aktuell: {current}\nNeu: {latest}\n\n"
+        f"Möchten Sie die neue Version jetzt installieren?"
+    )
+    msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+    msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+
+    result = msg_box.exec()
+
+    if result == QMessageBox.StandardButton.Yes:
+        return True  # Benutzer möchte installieren
+    else:
+        return False  # Benutzer möchte nicht installieren
+
 def check_for_update():
     try:
         r = requests.get(UPDATE_INFO_URL, timeout=6)
@@ -48,9 +73,14 @@ def check_for_update():
         logger.info(f"[UPDATE] Aktuell: {current}, Online: {latest_version}")
 
         if latest_version != current:
-            logger.info("[UPDATE] Neue Version gefunden! Installer wird geladen...")
-            installer_url = build_installer_url(latest_version)
-            download_and_run_installer(installer_url, auto_restart=True)
+            logger.info("[UPDATE] Neue Version gefunden!")
+
+            if show_update_popup(current, latest_version):
+                logger.info("[UPDATE] Installer wird geladen...")
+                installer_url = build_installer_url(latest_version)
+                download_and_run_installer(installer_url, auto_restart=True)
+            else:
+                logger.info("[UPDATE] Benutzer hat Installation abgebrochen.")
         else:
             logger.info("[UPDATE] Keine neue Version verfügbar.")
 

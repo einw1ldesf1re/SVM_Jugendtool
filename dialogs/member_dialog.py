@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QDialog, QFormLayout, QHBoxLayout, QLineEdit, QDateEdit, QComboBox,
+    QDialog, QFormLayout, QHBoxLayout, QLineEdit, QDateEdit, QComboBox, QWidget, QLabel,
     QPushButton, QMessageBox
 )
 from PyQt6.QtCore import QDate, Qt
@@ -83,10 +83,33 @@ class MemberDialog(QDialog):
         self.birth_edit.setDate(QDate.currentDate())
         layout.addRow('Geburtsdatum:', self.birth_edit)
 
+        # === Geschlecht ===
+        self.gender_box = QComboBox()
+        self.gender_box.addItems(["Männlich", "Weiblich", "Divers"])
+        layout.addRow('Geschlecht:', self.gender_box)
+
         # === Mitgliedsstatus (Mitglied / Gast) ===
         self.status_box = QComboBox()
-        self.status_box.addItems(["Mitglied", "Gast"])
+        self.status_box.addItems(["Gast", "Mitglied"])
         layout.addRow('Status:', self.status_box)
+
+        # Eintrittsdatum Container
+        self.entry_date_container = QWidget()
+        entry_layout = QHBoxLayout(self.entry_date_container)
+        entry_layout.setContentsMargins(0, 0, 0, 0)
+        self.entry_date_label = QLabel("Eintrittsdatum:")
+        self.entry_date_edit = QDateEdit(calendarPopup=True)
+        current_year = QDate.currentDate().year()
+        self.entry_date_edit.setDate(QDate(current_year, 1, 1))
+        entry_layout.addWidget(self.entry_date_label)
+        entry_layout.addWidget(self.entry_date_edit)
+        layout.addRow(self.entry_date_container)
+
+        # Sichtbarkeit initial prüfen
+        self.entry_date_container.setVisible(self.status_box.currentText() == "Mitglied")
+
+        # Signal für Statuswechsel
+        self.status_box.currentTextChanged.connect(self.on_status_changed)
 
         # === Buttons ===
         btn_layout = QHBoxLayout()
@@ -98,6 +121,12 @@ class MemberDialog(QDialog):
 
         self.save_btn.clicked.connect(self.validate_and_accept)
         self.cancel_btn.clicked.connect(self.reject)
+        self.status_box.currentTextChanged.connect(self.on_status_changed)
+
+    def on_status_changed(self, text):
+        is_member = text == "Mitglied"
+        self.entry_date_container.setVisible(is_member)
+        self.adjustSize()
 
     def load_member_names(self):
         """Lädt vorhandene Vornamen und Nachnamen für Vorschläge."""
@@ -112,6 +141,16 @@ class MemberDialog(QDialog):
         self.first_edit.setText(data['vorname'])
         self.last_edit.setText(data['nachname'])
         self.birth_edit.setDate(QDate.fromString(data['geburtsdatum'], 'yyyy-MM-dd'))
+        self.entry_date_edit.setDate(QDate.fromString(data['eintrittsdatum'], 'yyyy-MM-dd'))
+
+        # gender laden
+        gender = data.get('geschlecht', 'männlich')
+        if gender == "weiblich":
+            self.gender_box.setCurrentText("Weiblich")
+        elif gender == "divers":
+            self.gender_box.setCurrentText("Divers")
+        else:
+            self.gender_box.setCurrentText("Männlich")
 
         # Mitgliedsstatus laden
         status = data.get('rolle', 'mitglied')
@@ -144,9 +183,14 @@ class MemberDialog(QDialog):
         status_text = self.status_box.currentText()
         mitglied_status = "gast" if status_text == "Gast" else "mitglied"
 
+        gender_text = self.gender_box.currentText()
+        gender_status = "weiblich" if gender_text == "Weiblich" else "männlich" if gender_text == "Männlich" else "divers"
+
         return {
             'vorname': self.first_edit.text().strip(),
             'nachname': self.last_edit.text().strip(),
             'geburtsdatum': self.birth_edit.date().toString('yyyy-MM-dd'),
-            'rolle': mitglied_status
+            'geschlecht': gender_status,
+            'rolle': mitglied_status,
+            'eintrittsdatum': self.entry_date_edit.date().toString('yyyy-MM-dd')
         }

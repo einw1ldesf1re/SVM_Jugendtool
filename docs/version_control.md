@@ -1,49 +1,82 @@
-# TODO / Roadmap
+# 🗺️ TODO & Roadmap
 
-## In Arbeit
-- keine
+Ein Überblick über den aktuellen Entwicklungsstand, geplante Features und behobene Probleme des **SVM-Trainingstools**.
 
-## Geplant
-- keine
+---
 
-## Bekannte Fehler
-- keine
+## 🚧 In Arbeit
+> Derzeit in Entwicklung
+- *(keine aktiven Aufgaben)*
 
-<!-- ## [v1.1.0] - 2025-10-20
-### 🆕 Added
-- Druckfunktion für Mitgliederstatistik (PDF)
-- Fortschrittsanzeige für Trainingsfortschritt
+---
 
-### 🔧 Changed
-- Interne Datenbankabfragen optimiert
-- Tabellen-Styling überarbeitet
+## 🧩 Geplant
+> Ideen und Features für zukünftige Versionen
+- *(keine geplanten Erweiterungen)*
 
-### 🐛 Fixed
-- Fehler bei Geburtsdatumsanzeige korrigiert -->
+---
 
-## [v1.0.2] - 2025-11-08
-### Added
-- [x] Als Benutzer möchte ich im Programm in orange sehen wer ü18 ist
-- [x] Als Benutzer möchte ich im Programm in rot sehen wer ü26 ist
-- [x] Als Benutzer möchte ich im Programm in grün sehen wer u18 ist
-- [x] Als Benutzer möchte ich nur mitglieder unter 26 in der pdf angezeigt bekommen
-- [x] Als Benutzer möchte ich die ü18 in einer anderen farbe haben als die u18
+## 🐞 Bekannte Fehler
+> Aktuell bekannte, noch nicht behobene Probleme
+- *(keine offenen Fehler)*
 
-## [v1.0.1] - 2025-11-06
-### Added
-- [x] create Installer
-- [x] Auto-Update
+---
 
-### Fixed
-- [x] Mitglieder ergebnisse nur Disziplin speichern ohne ergebnis für Anwesenheit
-  - [x] Anzeige der Trainings im Programm abändern, dass die ohne ergebnisse separat angezeigt werden z.B.: in Teilnehmer training!
-  - [x] Oben genanntes Problem auch in Training drucken als PDF beheben!
-  - [x] Wenn kein ergebnis angegeben ist, wird es nicht in die gesammtbewertung für die badges und die diagramme aufgenommen
+## Versionen & Änderungen
 
-## [v1.0.0] - 2025-10-28
-### Initial Release
+### ![v1.0.4](https://img.shields.io/badge/v1.0.4-in_progress-blue?style=flat-round)
+
+---
+
+### ![v1.0.3](https://img.shields.io/badge/v1.0.3-2025--11-10-green?style=flat-round)
+#### Added
+- [x] **README.md** hinzugefügt und beschrieben
+- [x] Benutzer bekommt Popup bevor autoupdate startet
+- [x] Installierte version wird im main_window unten rechts angezeigt
+- [x] Geschlecht wird mit in der Datenbank gespeichert
+  - [x] Memberdialog wurder überarbeitet, dass man das geschlächt auswählen kann (Weiblich, Männlich, Divers)
+  - [x] datenbank anpassung in **init_database.py**
+  - [x] in **pdfprinter.py** eingebaut
+- [x] Eintrittsdatum der Mitglieder wird gespeichert
+  - [x] Memberdialog wurde überarbeitet, dass datum angezeigt wird, wenn Rolle mitglied ausgewählt ist!
+  - [x] Vorgeschlagenes datum ist immer der "01.01.aktuelles Jahr"
+  - [x] datenbank anpassung in **init_database.py**
+  - [x] in **pdfprinter.py** eingebaut
+
+#### Changed
+- [x] **version_control.md** optisch verbessert
+
+---
+
+### ![v1.0.2](https://img.shields.io/badge/v1.0.2-2025--11--08-green?style=flat-round) 
+#### Changed
+- [x] Benutzer sieht Mitglieder **über 18 Jahre in Orange**
+- [x] Benutzer sieht Mitglieder **über 26 Jahre in Rot**
+- [x] Benutzer sieht Mitglieder **unter 18 Jahre in Grün**
+- [x] PDF-Ausgabe zeigt nur **Mitglieder unter 26 Jahren**
+- [x] Farblogik für Altersgruppen überarbeitet (Ü18 ≠ U18)
+
+---
+
+### ![v1.0.1](https://img.shields.io/badge/v1.0.1-2025--11--06-gray?style=flat-round) 
+#### Added
+- [x] **Installer** erstellt  
+- [x] **Auto-Update** integriert  
+
+#### Fixed
+- [x] Mitglieder-Ergebnisse speichern nur noch Disziplin (bei Anwesenheit ohne Ergebnis)  
+  - [x] Anzeige solcher Trainings im Programm angepasst („Teilnehmer Training“)  
+  - [x] Fehler auch im PDF-Export behoben  
+  - [x] Ergebnisse ohne Wert werden nicht mehr in **Gesamtbewertung, Badges und Diagrammen** berücksichtigt  
+
+---
+
+### ![v1.0.0](https://img.shields.io/badge/v1.0.0-2025--10--28-gray?style=flat-round)  
+#### Initial Release
 - [x] Erste stabile Version mit:
-  - [x] Mitgliederverwaltung
-  - [x] Trainingsverwaltung
-  - [x] Statistik-Export
-  - [x] Badge-System
+  - [x] Mitgliederverwaltung  
+  - [x] Trainingsverwaltung  
+  - [x] Statistik-Export  
+  - [x] Badge-System  
+
+---

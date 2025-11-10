@@ -10,6 +10,7 @@ from functools import partial
 
 from pdf_printer import print_training_results, print_member_list, print_member_statistics
 from badge_manager import BadgeManager
+from utils.updater import get_current_version
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -97,6 +98,29 @@ class MainWindow(QMainWindow):
         self.add_member_btn.clicked.connect(self.add_member)
         self.tabs.addTab(self.members_tab, 'Mitglieder')
         self.status = self.statusBar()
+
+        self.status = self.statusBar()
+        self.status.setStyleSheet("QStatusBar::item { border: none; }")
+
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 2, 0)
+        layout.setSpacing(0)
+        layout.addStretch()
+
+        version = get_current_version()
+
+        version_label = QLabel(f"v{version}")
+        version_label.setStyleSheet("""
+            QLabel {
+                color: gray;
+                font-size: 11px;
+            }
+        """)
+        layout.addWidget(version_label)
+
+        # wichtig: addPermanentWidget verwenden, sonst verschwindet es bei showMessage()
+        self.status.addPermanentWidget(container)
 
     # -------------------- Trainings --------------------
     def load_trainings(self):
@@ -685,18 +709,19 @@ class MainWindow(QMainWindow):
     def load_members(self):
         rows = query_db('SELECT * FROM mitglieder ORDER BY nachname')
         self.member_table.setRowCount(0)
-        self.member_table.setColumnCount(6)
+        self.member_table.setColumnCount(7)
 
         # --- Tabellenkopf ---
-        self.member_table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Geburtsdatum', 'Status', ''])
+        self.member_table.setHorizontalHeaderLabels(['ID', 'Vorname', 'Nachname', 'Geschlecht', 'Geburtsdatum', 'Status', ''])
         header = self.member_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
-        self.member_table.setColumnWidth(5, 72)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
+        self.member_table.setColumnWidth(6, 72)
 
         # Padding per Stylesheet (gilt für alle Zellen)
         self.member_table.setStyleSheet("""
@@ -731,6 +756,16 @@ class MainWindow(QMainWindow):
             self.member_table.setItem(row_pos, 0, id_item)
             self.member_table.setItem(row_pos, 1, vor_item)
             self.member_table.setItem(row_pos, 2, nach_item)
+
+            # --- Geschlecht ---
+            gender = r.get('geschlecht', '')
+            gender_item = QTableWidgetItem(gender if gender else "–")
+            if is_guest:
+                font = gender_item.font()
+                font.setItalic(True)
+                gender_item.setFont(font)
+                gender_item.setForeground(QBrush(QColor("#888888")))
+            self.member_table.setItem(row_pos, 3, gender_item)
 
             # --- Geburtstag + Alter ---
             birthday = QDate.fromString(r['geburtsdatum'], 'yyyy-MM-dd')
@@ -769,27 +804,31 @@ class MainWindow(QMainWindow):
 
                     # Platzhalter-Item (wird vom QLabel überdeckt)
                     bday_item = QTableWidgetItem()
-                    self.member_table.setItem(row_pos, 3, bday_item)
-                    self.member_table.setCellWidget(row_pos, 3, label)
+                    self.member_table.setItem(row_pos, 4, bday_item)
+                    self.member_table.setCellWidget(row_pos, 4, label)
 
                 else:
                     bday_item = QTableWidgetItem("-")
-                    self.member_table.setItem(row_pos, 3, bday_item)
+                    self.member_table.setItem(row_pos, 4, bday_item)
 
             else:
                 bday_item = QTableWidgetItem("–")
-                self.member_table.setItem(row_pos, 3, bday_item)
+                self.member_table.setItem(row_pos, 4, bday_item)
 
 
             # --- Rolle / Status ---
             role_text = r.get('rolle', 'Mitglied')
-            role_item = QTableWidgetItem(role_text)
             if is_guest:
+                role_item = QTableWidgetItem(role_text)
                 font = role_item.font()
                 font.setItalic(True)
                 role_item.setFont(font)
                 role_item.setForeground(QBrush(QColor("#888888")))
-            self.member_table.setItem(row_pos, 4, role_item)
+            else:
+                eintritt = QDate.fromString(r['eintrittsdatum'], 'yyyy-MM-dd')
+                display_text = eintritt.toString('dd.MM.yyyy')
+                role_item = QTableWidgetItem(f"{role_text}")
+            self.member_table.setItem(row_pos, 5, role_item)
 
             # --- Buttons ---
             btn_widget = QWidget()
@@ -855,12 +894,12 @@ class MainWindow(QMainWindow):
             btn_layout.addWidget(btn_delete, alignment=Qt.AlignmentFlag.AlignCenter)
 
             btn_widget.setLayout(btn_layout)
-            self.member_table.setCellWidget(row_pos, 5, btn_widget)
+            self.member_table.setCellWidget(row_pos, 6, btn_widget)
             self.member_table.setRowHeight(row_pos, 28)
 
         # --- Nach dem Befüllen: resizeToContents + padding-Kompensation ---
         extra_padding = 12  # passt zu deinem stylesheet padding-left+right
-        for col in (0, 4, 5):
+        for col in (0, 5, 6):
             self.member_table.resizeColumnToContents(col)
             w = header.sectionSize(col)
             header.resizeSection(col, w + extra_padding)
@@ -873,8 +912,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() == dlg.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum, rolle) VALUES (?, ?, ?, ?)',
-                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'])
+                'INSERT INTO mitglieder (vorname, nachname, geburtsdatum, geschlecht, rolle, eintrittsdatum) VALUES (?, ?, ?, ?,? , ?)',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['geschlecht'], data['rolle'], data['eintrittsdatum'])
             )
             self.load_members()
             self.status.showMessage("Mitglied hinzugefügt", 3000)
@@ -891,8 +930,8 @@ class MainWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             data = dlg.get_data()
             query_db(
-                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=?, rolle=? WHERE mitglieder_id=?',
-                (data['vorname'], data['nachname'], data['geburtsdatum'], data['rolle'], mid)
+                'UPDATE mitglieder SET vorname=?, nachname=?, geburtsdatum=?, geschlecht=?, rolle=?, eintrittsdatum=? WHERE mitglieder_id=?',
+                (data['vorname'], data['nachname'], data['geburtsdatum'], data['geschlecht'], data['rolle'], data['eintrittsdatum'], mid)
             )
             self.load_members()
             self.status.showMessage("Mitglied aktualisiert", 3000)
