@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QPushButton, QTabWidget, QMessageBox, QDialog, QScrollArea, QLabel, QToolButton, QSizePolicy
-from PyQt6.QtCore import QDateTime, QDate, Qt, QSize
+from PyQt6.QtCore import QDateTime, QDate, Qt, QSize, QTimer
 from PyQt6.QtGui import QIcon, QColor, QBrush
 from dialogs.training_dialog import TrainingDialog
 from dialogs.member_dialog import MemberDialog
@@ -20,9 +20,12 @@ class MainWindow(QMainWindow):
         self.training_tables = {}  # Für pro-Training Tabellen
         self.current_training_id = None
         self.current_result_row = None
-        self.bm = BadgeManager()
+        self.bm = None  # Lazy Loading: wird erst beim Bedarf geladen
+        self.training_page = 0  # Aktuelle Seite für Trainings-Pagination
+        self.training_page_size = 8  # Trainings pro Seite
         self.setup_ui()
-        self.load_all()
+        # Daten werden nach der UI-Anzeige im Hintergrund geladen
+        QTimer.singleShot(100, self.load_all)
 
     def setup_ui(self):
         central = QWidget()
@@ -130,6 +133,39 @@ class MainWindow(QMainWindow):
             if widget is not None:
                 widget.setParent(None)
 
+        # --- Gesamtanzahl Trainings ermitteln ---
+        total_trainings = query_db('SELECT COUNT(*) as count FROM training', single=True)['count']
+        total_pages = (total_trainings + self.training_page_size - 1) // self.training_page_size
+        
+        # --- Sicherstellen, dass aktuelle Seite gültig ist ---
+        if self.training_page >= total_pages and total_pages > 0:
+            self.training_page = total_pages - 1
+        if self.training_page < 0:
+            self.training_page = 0
+
+        # --- Top-Button-Bar für Pagination ---
+        top_widget = QWidget()
+        top_layout = QHBoxLayout(top_widget)
+        top_layout.setContentsMargins(0, 0, 0, 8)
+        top_layout.addStretch()
+
+        page_label = QLabel(f"Seite {self.training_page + 1} von {total_pages if total_pages > 0 else 1}")
+        page_label.setStyleSheet("font-weight: bold;")
+        top_layout.addWidget(page_label)
+        top_layout.addSpacing(10)
+
+        btn_prev = QPushButton("← Vorherige")
+        btn_prev.setEnabled(self.training_page > 0)
+        btn_prev.clicked.connect(self.prev_training_page)
+        top_layout.addWidget(btn_prev)
+
+        btn_next = QPushButton("Nächste →")
+        btn_next.setEnabled(self.training_page < total_pages - 1)
+        btn_next.clicked.connect(self.next_training_page)
+        top_layout.addWidget(btn_next)
+
+        self.trainings_tab.layout().addWidget(top_widget)
+
         # --- ScrollArea ---
         scroll_area = QScrollArea()
         scroll_area.setStyleSheet("""
@@ -148,8 +184,12 @@ class MainWindow(QMainWindow):
         scroll_area.setWidgetResizable(True)
         self.trainings_tab.layout().addWidget(scroll_area)
 
-        # --- Trainings laden ---
-        trainings = query_db('SELECT * FROM training ORDER BY startzeit DESC')
+        # --- Trainings laden mit LIMIT & OFFSET ---
+        offset = self.training_page * self.training_page_size
+        trainings = query_db(
+            f'SELECT * FROM training ORDER BY startzeit DESC LIMIT ? OFFSET ?',
+            (self.training_page_size, offset)
+        )
 
         for t in trainings:
             tid = t['training_id']
@@ -503,7 +543,7 @@ class MainWindow(QMainWindow):
             self.load_trainings()
 
             """checkt badges"""
-            self.bm.update_all_badges(data['mitglied_id'])
+            self.get_badge_manager().update_all_badges(data['mitglied_id'])
 
 
             self.status.showMessage("Ergebnis hinzugefügt", 3000)
@@ -599,11 +639,11 @@ class MainWindow(QMainWindow):
 
             # Badges aktualisieren:
             # 1. Alte Daten: ggf. Badge-Level zurücksetzen / korrigieren
-            self.bm.update_all_badges(old_data['mitglied_id'])
+            self.get_badge_manager().update_all_badges(old_data['mitglied_id'])
             # 2. Neue Daten: Fortschritt mit neuem Ergebnis prüfen
             if new_data['mitglied_id'] != old_data['mitglied_id']:
                 # Wenn das Mitglied gewechselt hat, Badge auch für neuen Teilnehmer prüfen
-                self.bm.update_all_badges(new_data['mitglied_id'])
+                self.get_badge_manager().update_all_badges(new_data['mitglied_id'])
 
             self.load_trainings()
             self.status.showMessage("Ergebnis aktualisiert", 3000)
@@ -629,7 +669,7 @@ class MainWindow(QMainWindow):
             self.load_trainings()
 
             if mitglied_id:
-                self.bm.update_all_badges(mitglied_id)
+                self.get_badge_manager().update_all_badges(mitglied_id)
             
             self.status.showMessage("Ergebnis gelöscht", 3000)
 
@@ -659,7 +699,7 @@ class MainWindow(QMainWindow):
         self.load_trainings()
 
         for mid in mitglied_ids:
-            self.bm.update_all_badges(mid)
+            self.get_badge_manager().update_all_badges(mid)
 
         self.status.showMessage('Training und alle zugehörigen Daten gelöscht', 3000)
 
@@ -974,6 +1014,23 @@ class MainWindow(QMainWindow):
 
     def print_member_stats_by_id(self, mid):
         print_member_statistics(mid)
+
+    def get_badge_manager(self):
+        """Lazy Loading für BadgeManager - wird erst beim Bedarf erstellt"""
+        if self.bm is None:
+            self.bm = BadgeManager()
+        return self.bm
+
+    def prev_training_page(self):
+        """Zur vorherigen Seite wechseln"""
+        if self.training_page > 0:
+            self.training_page -= 1
+            self.load_trainings()
+
+    def next_training_page(self):
+        """Zur nächsten Seite wechseln"""
+        self.training_page += 1
+        self.load_trainings()
 
     def load_all(self):
         self.load_trainings()
